@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 import sys
 
@@ -13,8 +12,14 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.utils.config import get_config  # noqa: E402
-from src.utils.snowflake_connection import test_snowflake_connection  # noqa: E402
+from src.app_support.streamlit_helpers import (  # noqa: E402
+    apply_global_styles,
+    format_currency,
+    format_number,
+    load_data,
+    render_sidebar,
+)
+from src.utils.snowflake_queries import fetch_executive_metrics, fetch_platform_summary  # noqa: E402
 
 
 st.set_page_config(
@@ -24,48 +29,8 @@ st.set_page_config(
 )
 
 
-st.markdown(
-    """
-    <style>
-    .main .block-container {
-        padding-top: 2rem;
-        max-width: 1180px;
-    }
-    .metric-band {
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 1rem;
-        background: #ffffff;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-with st.sidebar:
-    st.title("RetailIQ")
-    st.caption("Demand intelligence platform")
-    st.divider()
-    st.markdown("**Navigation**")
-    st.write("Use the page menu to open forecast, risk, anomaly, quality, and AI analyst views.")
-    st.divider()
-    mfa_passcode = st.text_input(
-        "Snowflake MFA code",
-        max_chars=6,
-        type="password",
-        help="Enter the current 6-digit authenticator code only when your Snowflake account requires TOTP MFA.",
-    )
-    if st.button("Check Snowflake Connection", use_container_width=True):
-        config = get_config()
-        if mfa_passcode.strip():
-            config = replace(config, snowflake_passcode=mfa_passcode.strip())
-        ok, message = test_snowflake_connection(config)
-        st.session_state["snowflake_status"] = {"ok": ok, "message": message}
-        if ok:
-            st.success(message)
-        else:
-            st.warning(message)
+apply_global_styles()
+config = render_sidebar()
 
 
 st.title("RetailIQ: Cloud-Native Retail Demand Intelligence Platform")
@@ -74,14 +39,13 @@ st.write(
     "sales anomaly detection, and AI-assisted business analysis."
 )
 
-snowflake_status = st.session_state.get("snowflake_status")
-if snowflake_status:
-    if snowflake_status["ok"]:
-        st.success(snowflake_status["message"])
-    else:
-        st.info(snowflake_status["message"])
+metrics = load_data(fetch_executive_metrics, config)
+platform_summary = load_data(fetch_platform_summary, config)
+
+if st.session_state.get("snowflake_status", {}).get("ok"):
+    st.success(st.session_state["snowflake_status"]["message"])
 else:
-    st.info("Snowflake connection not checked yet. Use the sidebar button when your `.env` is configured.")
+    st.info("Use the sidebar MFA field to check Snowflake and refresh live dashboard data.")
 
 overview_col, architecture_col = st.columns([1.1, 1])
 
@@ -112,19 +76,41 @@ with architecture_col:
 
 st.subheader("Phase 1 Status")
 status_cols = st.columns(4)
-status_cols[0].metric("Raw Tables", "5", "Snowflake DDL")
-status_cols[1].metric("dbt Layers", "3", "staging to marts")
-status_cols[2].metric("App Pages", "6", "placeholders")
-status_cols[3].metric("Tests", "3", "starter suite")
+if not platform_summary.empty:
+    raw_count = platform_summary.query("table_schema == 'RAW'")["table_name"].nunique()
+    mart_count = platform_summary.query("table_schema == 'MARTS'")["table_name"].nunique()
+    status_cols[0].metric("Raw Tables", format_number(raw_count))
+    status_cols[1].metric("Mart Tables", format_number(mart_count))
+else:
+    status_cols[0].metric("Raw Tables", "5")
+    status_cols[1].metric("Mart Tables", "5")
+
+if not metrics.empty:
+    first_row = metrics.iloc[0]
+    status_cols[2].metric("Total Sales", format_currency(first_row.get("total_sales")))
+    status_cols[3].metric("Sales Records", format_number(first_row.get("sales_records")))
+else:
+    status_cols[2].metric("Total Sales", "$0")
+    status_cols[3].metric("Sales Records", "0")
+
+st.subheader("Warehouse Objects")
+if platform_summary.empty:
+    st.info("Run the sample ingestion and dbt commands to populate live object metadata.")
+else:
+    st.dataframe(
+        platform_summary[["table_schema", "table_name", "table_type", "row_count", "last_altered"]],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 st.subheader("Next Build Areas")
 next_cols = st.columns(3)
 with next_cols[0]:
-    st.markdown("**Demand Forecasting**")
-    st.write("Train baseline models and persist predictions into Snowflake.")
+    st.markdown("**Forecasting Model**")
+    st.write("Replace the Phase 1.5 baseline forecast with a trained model and persisted predictions.")
 with next_cols[1]:
-    st.markdown("**Inventory Risk**")
-    st.write("Generate synthetic inventory and rank stockout exposure.")
+    st.markdown("**Inventory Simulation**")
+    st.write("Scale synthetic inventory generation beyond the smoke-test sample.")
 with next_cols[2]:
     st.markdown("**AI Analyst**")
-    st.write("Answer business questions from governed Snowflake marts.")
+    st.write("Connect OpenAI-backed SQL generation to the governed mart layer.")

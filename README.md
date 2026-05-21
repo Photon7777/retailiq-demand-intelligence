@@ -177,6 +177,15 @@ The app will be available at `http://localhost:8501`.
 - Streamlit app shell and placeholder pages
 - Architecture, data dictionary, KPI, methodology, and business docs
 
+### Phase 1.5: Live Dashboard Bridge
+
+- Query Snowflake marts from Streamlit
+- Show live executive KPIs and table health
+- Display a baseline demand forecast view
+- Score stockout risk from observed demand and available inventory
+- Surface simple anomaly and data quality views
+- Add a rule-based AI analyst preview before OpenAI integration
+
 ### Phase 2: Data and Analytics Buildout
 
 - Load the full Walmart dataset

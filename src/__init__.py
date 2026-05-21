@@ -1,0 +1,2 @@
+"""RetailIQ application package."""
+

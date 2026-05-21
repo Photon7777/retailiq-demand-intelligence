@@ -125,6 +125,22 @@ If your Snowflake account requires MFA/TOTP:
 python -m src.ingestion.load_to_snowflake --sample-dir data/sample --truncate-first --prompt-passcode
 ```
 
+For dbt with Snowflake MFA, keep `SNOWFLAKE_AUTHENTICATOR=username_password_mfa`. If you are using a personal development Snowflake account, you can enable short-lived MFA token caching from a Snowsight worksheet:
+
+```sql
+ALTER ACCOUNT SET ALLOW_CLIENT_MFA_CACHING = TRUE;
+```
+
+Then run one Python connection check with a current passcode before running dbt:
+
+```bash
+export SNOWFLAKE_PASSCODE=123456
+python -c "from src.utils.snowflake_connection import test_snowflake_connection; print(test_snowflake_connection())"
+unset SNOWFLAKE_PASSCODE
+```
+
+Replace `123456` with the current 6-digit authenticator code.
+
 Launch the Streamlit app:
 
 ```bash

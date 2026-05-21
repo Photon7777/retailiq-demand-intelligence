@@ -42,6 +42,8 @@ def get_snowflake_connection(config: AppConfig | None = None) -> SnowflakeConnec
         connection_kwargs["password"] = config.snowflake_password
     if config.snowflake_authenticator:
         connection_kwargs["authenticator"] = config.snowflake_authenticator
+        connection_kwargs["client_request_mfa_token"] = True
+        connection_kwargs["client_store_temporary_credential"] = True
     if config.snowflake_passcode:
         connection_kwargs["passcode"] = config.snowflake_passcode
     if config.snowflake_passcode_in_password:

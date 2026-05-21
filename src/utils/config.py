@@ -17,6 +17,9 @@ class AppConfig:
     snowflake_account: str | None
     snowflake_user: str | None
     snowflake_password: str | None
+    snowflake_authenticator: str | None
+    snowflake_passcode: str | None
+    snowflake_passcode_in_password: bool
     snowflake_role: str | None
     snowflake_warehouse: str | None
     snowflake_database: str | None
@@ -41,6 +44,11 @@ def _read_env(name: str) -> str | None:
     return value.strip() if value and value.strip() else None
 
 
+def _read_bool_env(name: str) -> bool:
+    value = _read_env(name)
+    return value.lower() in {"1", "true", "yes", "y"} if value else False
+
+
 def get_config(env_file: str | Path | None = None) -> AppConfig:
     """Load `.env` and return an immutable application config object."""
     if env_file:
@@ -52,6 +60,9 @@ def get_config(env_file: str | Path | None = None) -> AppConfig:
         snowflake_account=_read_env("SNOWFLAKE_ACCOUNT"),
         snowflake_user=_read_env("SNOWFLAKE_USER"),
         snowflake_password=_read_env("SNOWFLAKE_PASSWORD"),
+        snowflake_authenticator=_read_env("SNOWFLAKE_AUTHENTICATOR"),
+        snowflake_passcode=_read_env("SNOWFLAKE_PASSCODE"),
+        snowflake_passcode_in_password=_read_bool_env("SNOWFLAKE_PASSCODE_IN_PASSWORD"),
         snowflake_role=_read_env("SNOWFLAKE_ROLE"),
         snowflake_warehouse=_read_env("SNOWFLAKE_WAREHOUSE"),
         snowflake_database=_read_env("SNOWFLAKE_DATABASE"),
@@ -66,9 +77,7 @@ def get_config(env_file: str | Path | None = None) -> AppConfig:
 SNOWFLAKE_REQUIRED_CONFIG = (
     "snowflake_account",
     "snowflake_user",
-    "snowflake_password",
     "snowflake_warehouse",
     "snowflake_database",
     "snowflake_schema",
 )
-

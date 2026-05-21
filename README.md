@@ -91,6 +91,14 @@ pip install -r requirements.txt
 
 Update `.env` with your Snowflake, GCP, and OpenAI configuration. Then create Snowflake objects:
 
+If your Snowflake account requires multi-factor authentication, set:
+
+```bash
+SNOWFLAKE_AUTHENTICATOR=username_password_mfa
+```
+
+For authenticator-app codes, you can temporarily set `SNOWFLAKE_PASSCODE` before a connection test. Do not commit real passcodes or passwords.
+
 ```bash
 snowsql -f cloud/snowflake_setup.sql
 ```

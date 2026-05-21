@@ -24,6 +24,9 @@ def get_snowflake_connection(config: AppConfig | None = None) -> SnowflakeConnec
     """Create a reusable Snowflake connection from environment configuration."""
     config = config or get_config()
     missing = config.missing(SNOWFLAKE_REQUIRED_CONFIG)
+    authenticator = (config.snowflake_authenticator or "snowflake").lower()
+    if authenticator in {"snowflake", "username_password_mfa"} and not config.snowflake_password:
+        missing.append("snowflake_password")
     if missing:
         readable = ", ".join(missing)
         raise SnowflakeConfigurationError(f"Missing Snowflake configuration: {readable}")
@@ -31,11 +34,18 @@ def get_snowflake_connection(config: AppConfig | None = None) -> SnowflakeConnec
     connection_kwargs = {
         "account": config.snowflake_account,
         "user": config.snowflake_user,
-        "password": config.snowflake_password,
         "warehouse": config.snowflake_warehouse,
         "database": config.snowflake_database,
         "schema": config.snowflake_schema,
     }
+    if config.snowflake_password:
+        connection_kwargs["password"] = config.snowflake_password
+    if config.snowflake_authenticator:
+        connection_kwargs["authenticator"] = config.snowflake_authenticator
+    if config.snowflake_passcode:
+        connection_kwargs["passcode"] = config.snowflake_passcode
+    if config.snowflake_passcode_in_password:
+        connection_kwargs["passcode_in_password"] = True
     if config.snowflake_role:
         connection_kwargs["role"] = config.snowflake_role
 
@@ -43,7 +53,7 @@ def get_snowflake_connection(config: AppConfig | None = None) -> SnowflakeConnec
         return snowflake.connector.connect(**connection_kwargs)
     except SnowflakeError as exc:
         logger.exception("Snowflake connection failed")
-        raise ConnectionError("Unable to connect to Snowflake. Check credentials and network access.") from exc
+        raise ConnectionError(f"Unable to connect to Snowflake: {exc}") from exc
 
 
 @contextmanager
@@ -68,5 +78,4 @@ def test_snowflake_connection(config: AppConfig | None = None) -> tuple[bool, st
         return False, str(exc)
     except Exception as exc:  # noqa: BLE001 - status checks should never crash the app
         logger.warning("Snowflake status check failed: %s", exc)
-        return False, "Snowflake connection check failed. Review credentials, role, and network access."
-
+        return False, f"Snowflake connection check failed: {exc}"

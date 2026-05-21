@@ -70,10 +70,23 @@ Place Phase 1 sample files in `data/sample/` before running the ingestion script
 
 ```bash
 cd retailiq-demand-intelligence
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel pyproject-hooks
 pip install -r requirements.txt
 cp .env.example .env
+```
+
+Recommended local runtime: Python 3.11. If your Mac's default `python3` is Python 3.9, install Python 3.11 first and recreate the virtual environment.
+
+```bash
+brew install python@3.11
+rm -rf .venv
+python3.11 -m venv .venv
+source .venv/bin/activate
+python --version
+python -m pip install --upgrade pip setuptools wheel pyproject-hooks
+pip install -r requirements.txt
 ```
 
 Update `.env` with your Snowflake, GCP, and OpenAI configuration. Then create Snowflake objects:
@@ -157,4 +170,3 @@ The app will be available at `http://localhost:8501`.
 - Add sample business scenarios
 - Add CI checks with GitHub Actions
 - Publish a polished project walkthrough
-

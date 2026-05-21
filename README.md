@@ -103,7 +103,7 @@ For authenticator-app codes, either type the current 6-digit code into the Strea
 snowsql -f cloud/snowflake_setup.sql
 ```
 
-Add CSV files to `data/sample/`:
+The repository includes a tiny sample dataset in `data/sample/` for smoke testing the pipeline:
 
 ```text
 data/sample/sales.csv
@@ -117,6 +117,12 @@ Run the local-to-Snowflake ingestion:
 
 ```bash
 python src/ingestion/load_to_snowflake.py --sample-dir data/sample
+```
+
+If your Snowflake account requires MFA/TOTP:
+
+```bash
+python src/ingestion/load_to_snowflake.py --sample-dir data/sample --prompt-passcode
 ```
 
 Launch the Streamlit app:

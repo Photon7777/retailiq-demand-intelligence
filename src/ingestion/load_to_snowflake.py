@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass, replace
+from getpass import getpass
 import logging
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -152,11 +153,17 @@ def load_dataframe_to_snowflake(connection, df: pd.DataFrame, table_config: Tabl
     return num_rows
 
 
-def load_sample_files(sample_dir: Path, files_to_load: list[str] | None = None) -> None:
+def load_sample_files(
+    sample_dir: Path,
+    files_to_load: list[str] | None = None,
+    snowflake_passcode: str | None = None,
+) -> None:
     """Load expected local CSV files from `data/sample/` into Snowflake RAW tables."""
     sample_dir = sample_dir.resolve()
     file_paths = validate_sample_files(sample_dir, files_to_load)
     config = get_config()
+    if snowflake_passcode:
+        config = replace(config, snowflake_passcode=snowflake_passcode)
     target_schema = config.snowflake_schema or "RAW"
 
     logger.info("Validated %s file(s) in %s", len(file_paths), sample_dir)
@@ -184,15 +191,26 @@ def parse_args() -> argparse.Namespace:
         choices=sorted(TABLE_LOAD_CONFIG),
         help="Optional subset of files to load, such as sales.csv stores.csv.",
     )
+    parser.add_argument(
+        "--snowflake-passcode",
+        help="Current Snowflake MFA/TOTP passcode. Prefer --prompt-passcode so the code is not saved in shell history.",
+    )
+    parser.add_argument(
+        "--prompt-passcode",
+        action="store_true",
+        help="Prompt securely for the current Snowflake MFA/TOTP passcode before connecting.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     args = parse_args()
-    load_sample_files(sample_dir=args.sample_dir, files_to_load=args.only)
+    passcode = args.snowflake_passcode
+    if args.prompt_passcode:
+        passcode = getpass("Snowflake MFA code: ")
+    load_sample_files(sample_dir=args.sample_dir, files_to_load=args.only, snowflake_passcode=passcode)
 
 
 if __name__ == "__main__":
     main()
-

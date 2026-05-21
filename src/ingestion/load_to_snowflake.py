@@ -8,9 +8,14 @@ from getpass import getpass
 import logging
 import re
 from pathlib import Path
+import sys
 
 import pandas as pd
 from snowflake.connector.pandas_tools import write_pandas
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from src.utils.config import get_config
 from src.utils.snowflake_connection import snowflake_connection

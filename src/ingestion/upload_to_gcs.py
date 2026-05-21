@@ -5,8 +5,13 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
+import sys
 
 from google.cloud import storage
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from src.utils.config import get_config
 
@@ -56,4 +61,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

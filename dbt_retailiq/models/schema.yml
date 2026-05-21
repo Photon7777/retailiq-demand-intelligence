@@ -1,0 +1,143 @@
+version: 2
+
+sources:
+  - name: raw
+    database: RETAILIQ_DB
+    schema: RAW
+    tables:
+      - name: sales
+        columns:
+          - name: store
+            tests:
+              - not_null
+          - name: dept
+            tests:
+              - not_null
+          - name: date
+            tests:
+              - not_null
+      - name: stores
+        columns:
+          - name: store
+            tests:
+              - not_null
+              - unique
+      - name: features
+        columns:
+          - name: store
+            tests:
+              - not_null
+          - name: date
+            tests:
+              - not_null
+      - name: inventory
+        columns:
+          - name: store
+            tests:
+              - not_null
+          - name: dept
+            tests:
+              - not_null
+          - name: date
+            tests:
+              - not_null
+
+models:
+  - name: stg_sales
+    description: Cleaned weekly sales records by store, department, and date.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+      - name: dept_id
+        tests:
+          - not_null
+      - name: sales_date
+        tests:
+          - not_null
+
+  - name: stg_stores
+    description: Cleaned store attributes.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_inventory
+    description: Cleaned synthetic inventory records.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+      - name: dept_id
+        tests:
+          - not_null
+      - name: inventory_date
+        tests:
+          - not_null
+
+  - name: dim_store
+    description: Store dimension used by dashboard and model marts.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_date
+    description: Date dimension derived from sales, feature, and inventory dates.
+    columns:
+      - name: date_day
+        tests:
+          - not_null
+          - unique
+
+  - name: fact_sales
+    description: Weekly sales fact table.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_id
+      - name: sales_date
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_day
+
+  - name: fact_inventory
+    description: Inventory fact table for stockout analysis.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_id
+      - name: inventory_date
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_day
+
+  - name: fact_demand
+    description: Demand analysis fact combining observed sales and available inventory.
+    columns:
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_id
+      - name: demand_date
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_day
+

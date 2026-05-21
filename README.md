@@ -116,13 +116,13 @@ data/sample/weather.csv
 Run the local-to-Snowflake ingestion:
 
 ```bash
-python src/ingestion/load_to_snowflake.py --sample-dir data/sample
+python src/ingestion/load_to_snowflake.py --sample-dir data/sample --truncate-first
 ```
 
 If your Snowflake account requires MFA/TOTP:
 
 ```bash
-python src/ingestion/load_to_snowflake.py --sample-dir data/sample --prompt-passcode
+python src/ingestion/load_to_snowflake.py --sample-dir data/sample --truncate-first --prompt-passcode
 ```
 
 Launch the Streamlit app:

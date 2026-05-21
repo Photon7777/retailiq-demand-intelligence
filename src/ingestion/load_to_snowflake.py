@@ -153,10 +153,18 @@ def load_dataframe_to_snowflake(connection, df: pd.DataFrame, table_config: Tabl
     return num_rows
 
 
+def truncate_table(connection, database: str, schema: str, table_name: str) -> None:
+    """Remove existing rows from a target table before a repeatable smoke-test load."""
+    qualified_table = f"{database}.{schema}.{table_name}"
+    with connection.cursor() as cursor:
+        cursor.execute(f"TRUNCATE TABLE {qualified_table}")
+
+
 def load_sample_files(
     sample_dir: Path,
     files_to_load: list[str] | None = None,
     snowflake_passcode: str | None = None,
+    truncate_first: bool = False,
 ) -> None:
     """Load expected local CSV files from `data/sample/` into Snowflake RAW tables."""
     sample_dir = sample_dir.resolve()
@@ -172,6 +180,9 @@ def load_sample_files(
             table_config = TABLE_LOAD_CONFIG[file_path.name]
             logger.info("Preparing %s for RAW.%s", file_path.name, table_config.table_name)
             df = read_and_prepare_csv(file_path, table_config)
+            if truncate_first:
+                logger.info("Truncating %s.%s before load", target_schema, table_config.table_name)
+                truncate_table(connection, config.snowflake_database, target_schema, table_config.table_name)
             row_count = load_dataframe_to_snowflake(
                 connection=connection,
                 df=df,
@@ -200,6 +211,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Prompt securely for the current Snowflake MFA/TOTP passcode before connecting.",
     )
+    parser.add_argument(
+        "--truncate-first",
+        action="store_true",
+        help="Truncate target RAW tables before loading so smoke tests are repeatable.",
+    )
     return parser.parse_args()
 
 
@@ -209,7 +225,12 @@ def main() -> None:
     passcode = args.snowflake_passcode
     if args.prompt_passcode:
         passcode = getpass("Snowflake MFA code: ")
-    load_sample_files(sample_dir=args.sample_dir, files_to_load=args.only, snowflake_passcode=passcode)
+    load_sample_files(
+        sample_dir=args.sample_dir,
+        files_to_load=args.only,
+        snowflake_passcode=passcode,
+        truncate_first=args.truncate_first,
+    )
 
 
 if __name__ == "__main__":

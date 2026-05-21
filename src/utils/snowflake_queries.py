@@ -33,6 +33,22 @@ def qualified_table(schema: str, table: str, config: AppConfig | None = None) ->
     return f"{_database(config)}.{_identifier(schema)}.{_identifier(table)}"
 
 
+def object_exists(schema: str, table: str, config: AppConfig | None = None) -> bool:
+    """Return whether a table or view exists in the configured Snowflake database."""
+    database = _database(config)
+    df = run_query(
+        f"""
+        select count(*) as object_count
+        from {database}.information_schema.tables
+        where table_schema = %(schema)s
+          and table_name = %(table)s
+        """,
+        config=config,
+        params={"schema": _identifier(schema), "table": _identifier(table)},
+    )
+    return bool(df.iloc[0]["object_count"]) if not df.empty else False
+
+
 def run_query(sql: str, config: AppConfig | None = None, params: dict[str, Any] | None = None) -> pd.DataFrame:
     """Run a Snowflake query and return a DataFrame with lower-case columns."""
     with snowflake_connection(config) as connection:
@@ -56,7 +72,7 @@ def fetch_platform_summary(config: AppConfig | None = None) -> pd.DataFrame:
             created,
             last_altered
         from {database}.information_schema.tables
-        where table_schema in ('RAW', 'STAGING', 'MARTS')
+        where table_schema in ('RAW', 'STAGING', 'MARTS', 'ML')
         order by table_schema, table_name
         """,
         config=config,
@@ -204,6 +220,56 @@ def fetch_baseline_forecast(config: AppConfig | None = None) -> pd.DataFrame:
     return df
 
 
+def fetch_forecast_results(config: AppConfig | None = None) -> pd.DataFrame:
+    """Fetch Phase 2 forecast results, falling back to the Phase 1.5 baseline."""
+    if object_exists("MARTS", "FACT_FORECAST", config):
+        fact_forecast = qualified_table("MARTS", "FACT_FORECAST", config)
+        return run_query(
+            f"""
+            select
+                store_id,
+                dept_id,
+                forecast_date,
+                horizon_days,
+                predicted_demand,
+                actual_demand,
+                prediction_interval_lower,
+                prediction_interval_upper,
+                model_name,
+                model_version,
+                case
+                    when actual_demand is null then null
+                    else actual_demand - predicted_demand
+                end as forecast_error,
+                case
+                    when actual_demand is null then null
+                    else abs(actual_demand - predicted_demand)
+                end as absolute_error
+            from {fact_forecast}
+            order by forecast_date, store_id, dept_id
+            """,
+            config=config,
+        )
+
+    baseline = fetch_baseline_forecast(config)
+    if baseline.empty:
+        return baseline
+
+    return baseline.rename(
+        columns={
+            "sales_date": "forecast_date",
+            "weekly_sales": "actual_demand",
+            "baseline_forecast": "predicted_demand",
+        }
+    ).assign(
+        horizon_days=0,
+        prediction_interval_lower=lambda df: (df["predicted_demand"] * 0.85).clip(lower=0),
+        prediction_interval_upper=lambda df: df["predicted_demand"] * 1.15,
+        model_name="phase_1_5_naive_baseline",
+        model_version="phase_1_5",
+    )
+
+
 def fetch_anomaly_candidates(config: AppConfig | None = None) -> pd.DataFrame:
     """Fetch sales rows and apply a simple z-score anomaly screen."""
     fact_sales = qualified_table("MARTS", "FACT_SALES", config)
@@ -229,6 +295,71 @@ def fetch_anomaly_candidates(config: AppConfig | None = None) -> pd.DataFrame:
     return flagged.sort_values(["is_anomaly", "anomaly_score"], ascending=[False, False])
 
 
+def fetch_stockout_risk_results(config: AppConfig | None = None) -> pd.DataFrame:
+    """Fetch Phase 2 stockout risk output, falling back to observed-demand scoring."""
+    if object_exists("MARTS", "FACT_STOCKOUT_RISK", config):
+        fact_stockout = qualified_table("MARTS", "FACT_STOCKOUT_RISK", config)
+        return run_query(
+            f"""
+            select
+                store_id,
+                dept_id,
+                risk_date,
+                predicted_demand,
+                available_inventory,
+                stockout_risk_score,
+                risk_category,
+                recommended_action,
+                model_version
+            from {fact_stockout}
+            order by
+                case risk_category
+                    when 'Critical' then 1
+                    when 'High' then 2
+                    when 'Medium' then 3
+                    else 4
+                end,
+                stockout_risk_score desc
+            """,
+            config=config,
+        )
+
+    demand = fetch_demand_detail(config)
+    if demand.empty:
+        return demand
+    return demand.rename(
+        columns={
+            "demand_date": "risk_date",
+            "observed_demand": "predicted_demand",
+        }
+    ).assign(model_version="observed_demand_proxy")
+
+
+def fetch_anomaly_results(config: AppConfig | None = None) -> pd.DataFrame:
+    """Fetch Phase 2 anomaly output, falling back to the Phase 1.5 z-score screen."""
+    if object_exists("MARTS", "FACT_ANOMALIES", config):
+        fact_anomalies = qualified_table("MARTS", "FACT_ANOMALIES", config)
+        return run_query(
+            f"""
+            select
+                store_id,
+                dept_id,
+                sales_date,
+                weekly_sales,
+                anomaly_score,
+                is_anomaly,
+                severity,
+                direction,
+                model_version
+            from {fact_anomalies}
+            order by is_anomaly desc, abs(anomaly_score) desc, sales_date
+            """,
+            config=config,
+        )
+
+    return fetch_anomaly_candidates(config)
+
+
 def fetch_quality_checks(config: AppConfig | None = None) -> pd.DataFrame:
     """Create a lightweight data quality status table from Snowflake metadata."""
     database = _database(config)
@@ -242,7 +373,7 @@ def fetch_quality_checks(config: AppConfig | None = None) -> pd.DataFrame:
                 coalesce(row_count, 0) as row_count,
                 last_altered
             from {database}.information_schema.tables
-            where table_schema in ('RAW', 'MARTS')
+            where table_schema in ('RAW', 'MARTS', 'ML')
         )
         select
             table_schema || '.' || table_name as object_name,
@@ -259,4 +390,3 @@ def fetch_quality_checks(config: AppConfig | None = None) -> pd.DataFrame:
         """,
         config=config,
     )
-

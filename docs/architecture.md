@@ -10,6 +10,8 @@ Local CSV / GCS
     -> dbt STAGING
     -> dbt MARTS
     -> Python ML outputs
+    -> Snowflake ML
+    -> dbt ML marts
     -> Streamlit dashboards
     -> AI Retail Analyst
 ```
@@ -18,7 +20,7 @@ Local CSV / GCS
 
 ### Ingestion
 
-Raw source files are stored locally in `data/sample/` during Phase 1. The ingestion script validates expected files, normalizes column names, and appends data into Snowflake `RAW` tables.
+Raw source files are stored locally in `data/sample/` during Phase 1. In Phase 2, downloaded Walmart files are placed in `data/raw/walmart/` and converted into canonical RetailIQ files. The ingestion script validates expected files, normalizes column names, and appends data into Snowflake `RAW` tables.
 
 ### Warehouse
 
@@ -36,7 +38,7 @@ dbt provides modular SQL transformations, lineage, tests, and documentation. Pha
 
 ### Machine Learning
 
-Python workflows will train demand forecasting models, generate prediction outputs, score stockout risk, and detect anomalies.
+Python workflows train a baseline demand forecasting model, generate prediction outputs, score stockout risk, and detect anomalies. Generated CSV outputs land in `data/ml_outputs/`, then load into Snowflake `ML` tables and dbt marts.
 
 ### Application
 
@@ -45,4 +47,3 @@ Streamlit is the primary presentation layer. It will show executive KPIs, foreca
 ### AI
 
 The AI Retail Analyst will use OpenAI to interpret business questions, generate governed read-only SQL, execute against Snowflake, and summarize results in business language.
-

@@ -6,16 +6,16 @@ import plotly.express as px
 import streamlit as st
 
 from src.app_support.streamlit_helpers import apply_global_styles, load_data, render_sidebar
-from src.utils.snowflake_queries import fetch_anomaly_candidates
+from src.utils.snowflake_queries import fetch_anomaly_results
 
 st.set_page_config(page_title="Anomaly Center", layout="wide")
 apply_global_styles()
 config = render_sidebar()
 
 st.title("Anomaly Center")
-st.write("Simple z-score anomaly screen over mart sales records.")
+st.write("Sales anomaly results from the Phase 2 ML output mart, with a z-score fallback before ML outputs are loaded.")
 
-anomalies = load_data(fetch_anomaly_candidates, config)
+anomalies = load_data(fetch_anomaly_results, config)
 
 top_cols = st.columns(3)
 selected_severity = top_cols[0].selectbox("Severity", ["All", "High", "Medium", "Low"])

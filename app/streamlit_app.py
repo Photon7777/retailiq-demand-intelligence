@@ -69,29 +69,30 @@ with architecture_col:
     st.subheader("Architecture Summary")
     st.markdown(
         """
-        `CSV / GCS` -> `Snowflake RAW` -> `dbt STAGING` -> `dbt MARTS` -> `ML outputs` -> `Streamlit + AI Analyst`
+        `CSV / GCS` -> `Snowflake RAW` -> `dbt STAGING` -> `dbt MARTS` -> `Snowflake ML` -> `Streamlit + AI Analyst`
         """
     )
-    st.info("Phase 1 includes the repository foundation and first local CSV-to-Snowflake ingestion path.")
+    st.info("Phase 2 adds canonical Walmart prep, baseline ML outputs, and Snowflake-backed model marts.")
 
-st.subheader("Phase 1 Status")
+st.subheader("Pipeline Status")
 status_cols = st.columns(4)
 if not platform_summary.empty:
     raw_count = platform_summary.query("table_schema == 'RAW'")["table_name"].nunique()
     mart_count = platform_summary.query("table_schema == 'MARTS'")["table_name"].nunique()
+    ml_count = platform_summary.query("table_schema == 'ML'")["table_name"].nunique()
     status_cols[0].metric("Raw Tables", format_number(raw_count))
     status_cols[1].metric("Mart Tables", format_number(mart_count))
+    status_cols[2].metric("ML Tables", format_number(ml_count))
 else:
     status_cols[0].metric("Raw Tables", "5")
     status_cols[1].metric("Mart Tables", "5")
+    status_cols[2].metric("ML Tables", "3")
 
 if not metrics.empty:
     first_row = metrics.iloc[0]
-    status_cols[2].metric("Total Sales", format_currency(first_row.get("total_sales")))
-    status_cols[3].metric("Sales Records", format_number(first_row.get("sales_records")))
+    status_cols[3].metric("Total Sales", format_currency(first_row.get("total_sales")))
 else:
-    status_cols[2].metric("Total Sales", "$0")
-    status_cols[3].metric("Sales Records", "0")
+    status_cols[3].metric("Total Sales", "$0")
 
 st.subheader("Warehouse Objects")
 if platform_summary.empty:
@@ -107,10 +108,10 @@ st.subheader("Next Build Areas")
 next_cols = st.columns(3)
 with next_cols[0]:
     st.markdown("**Forecasting Model**")
-    st.write("Replace the Phase 1.5 baseline forecast with a trained model and persisted predictions.")
+    st.write("Evaluate the baseline model against the full Walmart history and add richer lag features.")
 with next_cols[1]:
     st.markdown("**Inventory Simulation**")
-    st.write("Scale synthetic inventory generation beyond the smoke-test sample.")
+    st.write("Tune synthetic inventory assumptions for service-level and reorder-point scenarios.")
 with next_cols[2]:
     st.markdown("**AI Analyst**")
     st.write("Connect OpenAI-backed SQL generation to the governed mart layer.")

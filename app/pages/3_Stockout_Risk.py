@@ -6,16 +6,16 @@ import plotly.express as px
 import streamlit as st
 
 from src.app_support.streamlit_helpers import apply_global_styles, load_data, render_sidebar
-from src.utils.snowflake_queries import fetch_demand_detail
+from src.utils.snowflake_queries import fetch_stockout_risk_results
 
 st.set_page_config(page_title="Stockout Risk", layout="wide")
 apply_global_styles()
 config = render_sidebar()
 
 st.title("Stockout Risk")
-st.write("Observed demand is used as a Phase 1.5 proxy for forecasted demand until model outputs exist.")
+st.write("Stockout risk from Phase 2 forecast outputs, with observed-demand proxy scoring before ML outputs are loaded.")
 
-risk = load_data(fetch_demand_detail, config)
+risk = load_data(fetch_stockout_risk_results, config)
 risk_order = ["Critical", "High", "Medium", "Low"]
 risk_counts = risk["risk_category"].value_counts().to_dict() if not risk.empty else {}
 
@@ -39,7 +39,7 @@ with left:
 with right:
     st.subheader("Recommended Actions")
     if risk.empty:
-        st.info("Run dbt to populate `MARTS.FACT_DEMAND`.")
+        st.info("Run dbt and the Phase 2 ML output load to populate stockout risk results.")
     else:
         ordered_risk = risk.copy()
         ordered_risk["risk_sort"] = ordered_risk["risk_category"].map({name: index for index, name in enumerate(risk_order)})
@@ -47,10 +47,10 @@ with right:
         st.dataframe(
             ordered_risk[
                 [
-                    "demand_date",
+                    "risk_date",
                     "store_id",
                     "dept_id",
-                    "observed_demand",
+                    "predicted_demand",
                     "available_inventory",
                     "stockout_risk_score",
                     "risk_category",

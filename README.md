@@ -113,6 +113,22 @@ data/sample/inventory.csv
 data/sample/weather.csv
 ```
 
+For the full Walmart dataset, download the Walmart Store Sales Forecasting files and place them in `data/raw/walmart/`:
+
+```text
+data/raw/walmart/train.csv
+data/raw/walmart/stores.csv
+data/raw/walmart/features.csv
+```
+
+Then prepare canonical RetailIQ files, including synthetic inventory and weather:
+
+```bash
+python -m src.ingestion.prepare_walmart_data \
+  --input-dir data/raw/walmart \
+  --output-dir data/sample
+```
+
 Run the local-to-Snowflake ingestion:
 
 ```bash
@@ -153,6 +169,36 @@ Run tests:
 pytest
 ```
 
+## Phase 2 Workflow
+
+After the raw files and dbt marts are working, generate and publish ML outputs:
+
+```bash
+python -m src.ml.train_forecast_model --data-dir data/sample --model-dir models
+python -m src.ml.generate_predictions \
+  --data-dir data/sample \
+  --model-path models/retailiq_forecast_model.pkl \
+  --output-dir data/ml_outputs
+```
+
+Create or refresh the Snowflake `ML` tables by rerunning `cloud/snowflake_setup.sql`, then load the generated outputs:
+
+```bash
+python -m src.ingestion.load_ml_outputs_to_snowflake \
+  --output-dir data/ml_outputs \
+  --truncate-first \
+  --prompt-passcode
+```
+
+Finally run dbt so `MARTS.FACT_FORECAST`, `MARTS.FACT_STOCKOUT_RISK`, and `MARTS.FACT_ANOMALIES` are available to Streamlit:
+
+```bash
+cd dbt_retailiq
+dbt run
+dbt test
+cd ..
+```
+
 ## Docker Compose
 
 For a simple containerized Streamlit run:
@@ -188,12 +234,12 @@ The app will be available at `http://localhost:8501`.
 
 ### Phase 2: Data and Analytics Buildout
 
-- Load the full Walmart dataset
-- Generate synthetic inventory records
-- Build dbt staging and mart transformations
-- Add data quality checks and freshness checks
-- Train baseline forecasting models
-- Persist forecast and stockout outputs to Snowflake
+- Prepare the full Walmart dataset into canonical RetailIQ CSVs
+- Generate synthetic inventory and weather records
+- Train a baseline Random Forest forecasting model
+- Generate forecast, stockout risk, and sales anomaly output files
+- Persist model outputs to Snowflake `ML` tables
+- Transform ML outputs into dbt marts for Streamlit dashboards
 
 ### Phase 3: Intelligence Layer
 

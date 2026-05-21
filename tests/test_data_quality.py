@@ -31,9 +31,16 @@ def test_snowflake_setup_includes_expected_raw_tables() -> None:
         assert f"RAW.{table_name}" in setup_sql
 
 
+def test_snowflake_setup_includes_expected_ml_tables() -> None:
+    setup_sql = (PROJECT_ROOT / "cloud/snowflake_setup.sql").read_text(encoding="utf-8").upper()
+    expected_tables = ["DEMAND_FORECASTS", "STOCKOUT_RISK", "SALES_ANOMALIES"]
+
+    for table_name in expected_tables:
+        assert f"ML.{table_name}" in setup_sql
+
+
 def test_env_example_does_not_contain_fake_secret_values() -> None:
     env_text = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
 
     assert "password123" not in env_text.lower()
     assert "sk-" not in env_text
-

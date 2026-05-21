@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.app_support.streamlit_helpers import apply_global_styles, format_currency, format_number, load_data, render_sidebar
-from src.utils.snowflake_queries import fetch_demand_detail, fetch_executive_metrics, fetch_store_sales
+from src.utils.snowflake_queries import fetch_executive_metrics, fetch_stockout_risk_results, fetch_store_sales
 
 st.set_page_config(page_title="AI Retail Analyst", layout="wide")
 apply_global_styles()
@@ -47,7 +47,7 @@ if st.button("Ask Analyst", type="primary"):
             )
         st.session_state["analyst_sql"] = "select store_id, sum(weekly_sales) from RETAILIQ_DB.MARTS.FACT_SALES group by 1;"
     else:
-        risk = load_data(fetch_demand_detail, config)
+        risk = load_data(fetch_stockout_risk_results, config)
         if risk.empty:
             st.session_state["analyst_answer"] = "I could not load stockout risk rows from Snowflake yet."
         else:
@@ -56,7 +56,7 @@ if st.button("Ask Analyst", type="primary"):
                 f"The highest stockout risk row is store {int(top['store_id'])}, department {int(top['dept_id'])}, "
                 f"with a score of {top['stockout_risk_score']:.2f} and category {top['risk_category']}."
             )
-        st.session_state["analyst_sql"] = "select * from RETAILIQ_DB.MARTS.FACT_DEMAND;"
+        st.session_state["analyst_sql"] = "select * from RETAILIQ_DB.MARTS.FACT_STOCKOUT_RISK;"
 
 st.subheader("Answer")
 st.write(st.session_state.get("analyst_answer", "No response yet."))

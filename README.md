@@ -97,7 +97,7 @@ If your Snowflake account requires multi-factor authentication, set:
 SNOWFLAKE_AUTHENTICATOR=username_password_mfa
 ```
 
-For authenticator-app codes, you can temporarily set `SNOWFLAKE_PASSCODE` before a connection test. Do not commit real passcodes or passwords.
+For authenticator-app codes, either type the current 6-digit code into the Streamlit sidebar before clicking **Check Snowflake Connection**, or temporarily set `SNOWFLAKE_PASSCODE` before a command-line connection test. Do not commit real passcodes or passwords.
 
 ```bash
 snowsql -f cloud/snowflake_setup.sql

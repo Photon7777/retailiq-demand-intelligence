@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import sys
 
@@ -12,6 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
+from src.utils.config import get_config  # noqa: E402
 from src.utils.snowflake_connection import test_snowflake_connection  # noqa: E402
 
 
@@ -48,8 +50,18 @@ with st.sidebar:
     st.markdown("**Navigation**")
     st.write("Use the page menu to open forecast, risk, anomaly, quality, and AI analyst views.")
     st.divider()
+    mfa_passcode = st.text_input(
+        "Snowflake MFA code",
+        max_chars=6,
+        type="password",
+        help="Enter the current 6-digit authenticator code only when your Snowflake account requires TOTP MFA.",
+    )
     if st.button("Check Snowflake Connection", use_container_width=True):
-        ok, message = test_snowflake_connection()
+        config = get_config()
+        if mfa_passcode.strip():
+            config = replace(config, snowflake_passcode=mfa_passcode.strip())
+        ok, message = test_snowflake_connection(config)
+        st.session_state["snowflake_status"] = {"ok": ok, "message": message}
         if ok:
             st.success(message)
         else:
@@ -62,11 +74,14 @@ st.write(
     "sales anomaly detection, and AI-assisted business analysis."
 )
 
-status_ok, status_message = test_snowflake_connection()
-if status_ok:
-    st.success(status_message)
+snowflake_status = st.session_state.get("snowflake_status")
+if snowflake_status:
+    if snowflake_status["ok"]:
+        st.success(snowflake_status["message"])
+    else:
+        st.info(snowflake_status["message"])
 else:
-    st.info(status_message)
+    st.info("Snowflake connection not checked yet. Use the sidebar button when your `.env` is configured.")
 
 overview_col, architecture_col = st.columns([1.1, 1])
 

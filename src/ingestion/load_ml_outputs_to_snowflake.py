@@ -86,6 +86,54 @@ ML_OUTPUT_CONFIG: dict[str, MLOutputConfig] = {
 }
 
 
+ML_TABLE_DDL = {
+    "DEMAND_FORECASTS": """
+        CREATE TABLE IF NOT EXISTS {database}.ML.DEMAND_FORECASTS (
+          STORE NUMBER,
+          DEPT NUMBER,
+          FORECAST_DATE DATE,
+          HORIZON_DAYS NUMBER,
+          PREDICTED_DEMAND FLOAT,
+          ACTUAL_DEMAND FLOAT,
+          PREDICTION_INTERVAL_LOWER FLOAT,
+          PREDICTION_INTERVAL_UPPER FLOAT,
+          MODEL_NAME VARCHAR,
+          MODEL_VERSION VARCHAR,
+          TRAINED_AT TIMESTAMP_NTZ,
+          CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+        )
+    """,
+    "STOCKOUT_RISK": """
+        CREATE TABLE IF NOT EXISTS {database}.ML.STOCKOUT_RISK (
+          STORE NUMBER,
+          DEPT NUMBER,
+          RISK_DATE DATE,
+          PREDICTED_DEMAND FLOAT,
+          AVAILABLE_INVENTORY FLOAT,
+          STOCKOUT_RISK_SCORE FLOAT,
+          RISK_CATEGORY VARCHAR,
+          RECOMMENDED_ACTION VARCHAR,
+          MODEL_VERSION VARCHAR,
+          CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+        )
+    """,
+    "SALES_ANOMALIES": """
+        CREATE TABLE IF NOT EXISTS {database}.ML.SALES_ANOMALIES (
+          STORE NUMBER,
+          DEPT NUMBER,
+          SALES_DATE DATE,
+          WEEKLY_SALES FLOAT,
+          ANOMALY_SCORE FLOAT,
+          IS_ANOMALY BOOLEAN,
+          SEVERITY VARCHAR,
+          DIRECTION VARCHAR,
+          MODEL_VERSION VARCHAR,
+          CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+        )
+    """,
+}
+
+
 def read_ml_output(file_path: Path, output_config: MLOutputConfig) -> pd.DataFrame:
     """Read and type an ML output CSV for Snowflake loading."""
     if not file_path.exists():
@@ -115,6 +163,15 @@ def read_ml_output(file_path: Path, output_config: MLOutputConfig) -> pd.DataFra
     return df
 
 
+def ensure_ml_tables(connection, database: str) -> None:
+    """Create the Snowflake ML schema and output tables if they do not exist."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {database}.ML")
+        for table_name, ddl in ML_TABLE_DDL.items():
+            logger.info("Ensuring ML.%s exists", table_name)
+            cursor.execute(ddl.format(database=database))
+
+
 def truncate_table(connection, database: str, schema: str, table_name: str) -> None:
     """Remove existing rows from a Snowflake ML output table."""
     with connection.cursor() as cursor:
@@ -134,6 +191,7 @@ def load_ml_outputs(
         config = replace(config, snowflake_passcode=snowflake_passcode)
 
     with snowflake_connection(config) as connection:
+        ensure_ml_tables(connection, config.snowflake_database)
         for file_name in requested_files:
             if file_name not in ML_OUTPUT_CONFIG:
                 supported = ", ".join(ML_OUTPUT_CONFIG)

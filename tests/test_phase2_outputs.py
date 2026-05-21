@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.ml.anomaly_detection import build_sales_anomaly_output
+from src.ingestion.load_ml_outputs_to_snowflake import ML_TABLE_DDL
 from src.ml.generate_predictions import FORECAST_OUTPUT_COLUMNS, STOCKOUT_OUTPUT_COLUMNS
 from src.ml.synthetic_inventory import generate_synthetic_inventory, generate_synthetic_weather
 
@@ -62,3 +63,8 @@ def test_phase2_output_column_contracts_are_explicit() -> None:
     assert "Prediction_Interval_Lower" in FORECAST_OUTPUT_COLUMNS
     assert "Prediction_Interval_Upper" in FORECAST_OUTPUT_COLUMNS
     assert "Risk_Category" in STOCKOUT_OUTPUT_COLUMNS
+
+
+def test_ml_loader_can_create_required_output_tables() -> None:
+    assert {"DEMAND_FORECASTS", "STOCKOUT_RISK", "SALES_ANOMALIES"} == set(ML_TABLE_DDL)
+    assert "CREATE TABLE IF NOT EXISTS {database}.ML.DEMAND_FORECASTS" in ML_TABLE_DDL["DEMAND_FORECASTS"]

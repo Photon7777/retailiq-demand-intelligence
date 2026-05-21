@@ -181,7 +181,7 @@ python -m src.ml.generate_predictions \
   --output-dir data/ml_outputs
 ```
 
-Create or refresh the Snowflake `ML` tables by rerunning `cloud/snowflake_setup.sql`, then load the generated outputs:
+Load the generated outputs into Snowflake. The loader creates the `ML` schema and output tables if they do not exist:
 
 ```bash
 python -m src.ingestion.load_ml_outputs_to_snowflake \

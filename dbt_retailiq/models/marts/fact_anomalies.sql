@@ -8,5 +8,5 @@ select
     severity::varchar as severity,
     direction::varchar as direction,
     model_version::varchar as model_version,
-    created_at::timestamp_ntz as created_at
+    try_to_timestamp_ntz(created_at::varchar) as created_at
 from {{ source('ml', 'sales_anomalies') }}

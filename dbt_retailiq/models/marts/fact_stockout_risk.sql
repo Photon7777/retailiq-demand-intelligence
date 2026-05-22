@@ -8,5 +8,5 @@ select
     risk_category::varchar as risk_category,
     recommended_action::varchar as recommended_action,
     model_version::varchar as model_version,
-    created_at::timestamp_ntz as created_at
+    try_to_timestamp_ntz(created_at::varchar) as created_at
 from {{ source('ml', 'stockout_risk') }}

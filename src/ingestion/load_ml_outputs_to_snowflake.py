@@ -150,7 +150,9 @@ def read_ml_output(file_path: Path, output_config: MLOutputConfig) -> pd.DataFra
     for column in output_config.date_columns:
         df[column] = pd.to_datetime(df[column], errors="coerce").dt.date
     for column in output_config.timestamp_columns:
-        df[column] = pd.to_datetime(df[column], errors="coerce").dt.tz_localize(None)
+        parsed = pd.to_datetime(df[column], errors="coerce", utc=True).dt.tz_convert(None)
+        df[column] = parsed.dt.strftime("%Y-%m-%d %H:%M:%S")
+        df.loc[parsed.isna(), column] = None
     for column in df.columns:
         if column in {*output_config.date_columns, *output_config.timestamp_columns}:
             continue
@@ -163,19 +165,21 @@ def read_ml_output(file_path: Path, output_config: MLOutputConfig) -> pd.DataFra
     return df
 
 
-def ensure_ml_tables(connection, database: str) -> None:
-    """Create the Snowflake ML schema and output tables if they do not exist."""
+def ensure_ml_schema(connection, database: str) -> None:
+    """Create the Snowflake ML schema if it does not exist."""
     with connection.cursor() as cursor:
         cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {database}.ML")
-        for table_name, ddl in ML_TABLE_DDL.items():
-            logger.info("Ensuring ML.%s exists", table_name)
-            cursor.execute(ddl.format(database=database))
 
 
-def truncate_table(connection, database: str, schema: str, table_name: str) -> None:
-    """Remove existing rows from a Snowflake ML output table."""
+def ensure_ml_table(connection, database: str, table_name: str, replace_existing: bool = False) -> None:
+    """Create or recreate one Snowflake ML output table."""
+    ddl = ML_TABLE_DDL[table_name].format(database=database)
+    if replace_existing:
+        ddl = ddl.replace("CREATE TABLE IF NOT EXISTS", "CREATE OR REPLACE TABLE", 1)
+
     with connection.cursor() as cursor:
-        cursor.execute(f"TRUNCATE TABLE {database}.{schema}.{table_name}")
+        logger.info("%s ML.%s", "Recreating" if replace_existing else "Ensuring", table_name)
+        cursor.execute(ddl)
 
 
 def load_ml_outputs(
@@ -191,7 +195,7 @@ def load_ml_outputs(
         config = replace(config, snowflake_passcode=snowflake_passcode)
 
     with snowflake_connection(config) as connection:
-        ensure_ml_tables(connection, config.snowflake_database)
+        ensure_ml_schema(connection, config.snowflake_database)
         for file_name in requested_files:
             if file_name not in ML_OUTPUT_CONFIG:
                 supported = ", ".join(ML_OUTPUT_CONFIG)
@@ -199,11 +203,16 @@ def load_ml_outputs(
 
             output_config = ML_OUTPUT_CONFIG[file_name]
             file_path = output_dir / file_name
+            ensure_ml_table(
+                connection,
+                config.snowflake_database,
+                output_config.table_name,
+                replace_existing=truncate_first,
+            )
             logger.info("Preparing %s for ML.%s", file_name, output_config.table_name)
             df = read_ml_output(file_path, output_config)
             if truncate_first:
-                logger.info("Truncating ML.%s before load", output_config.table_name)
-                truncate_table(connection, config.snowflake_database, "ML", output_config.table_name)
+                logger.info("Recreated ML.%s before load", output_config.table_name)
             success, _chunks, row_count, output = write_pandas(
                 conn=connection,
                 df=df,
@@ -225,7 +234,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--only", nargs="+", choices=sorted(ML_OUTPUT_CONFIG))
     parser.add_argument("--snowflake-passcode")
     parser.add_argument("--prompt-passcode", action="store_true")
-    parser.add_argument("--truncate-first", action="store_true")
+    parser.add_argument(
+        "--truncate-first",
+        action="store_true",
+        help="Recreate target ML tables before loading so schema fixes and smoke tests are repeatable.",
+    )
     return parser.parse_args()
 
 

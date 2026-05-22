@@ -9,6 +9,6 @@ select
     prediction_interval_upper::float as prediction_interval_upper,
     model_name::varchar as model_name,
     model_version::varchar as model_version,
-    trained_at::timestamp_ntz as trained_at,
-    created_at::timestamp_ntz as created_at
+    try_to_timestamp_ntz(trained_at::varchar) as trained_at,
+    try_to_timestamp_ntz(created_at::varchar) as created_at
 from {{ source('ml', 'demand_forecasts') }}

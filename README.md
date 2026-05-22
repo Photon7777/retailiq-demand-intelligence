@@ -181,7 +181,7 @@ python -m src.ml.generate_predictions \
   --output-dir data/ml_outputs
 ```
 
-Load the generated outputs into Snowflake. The loader creates the `ML` schema and output tables if they do not exist:
+Load the generated outputs into Snowflake. The loader creates the `ML` schema and output tables if they do not exist. With `--truncate-first`, it recreates those output tables so local reloads are repeatable:
 
 ```bash
 python -m src.ingestion.load_ml_outputs_to_snowflake \

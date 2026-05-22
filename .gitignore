@@ -13,6 +13,7 @@ env/
 
 # Local datasets and generated model artifacts
 data/raw/walmart/*.csv
+data/processed/walmart/*.csv
 data/ml_outputs/*.csv
 models/*.pkl
 models/*.json
@@ -21,6 +22,8 @@ models/*.json
 dbt_retailiq/target/
 dbt_retailiq/dbt_packages/
 dbt_retailiq/logs/
+dbt_retailiq/profiles.yml
+dbt_retailiq/.user.yml
 
 # Jupyter
 .ipynb_checkpoints/

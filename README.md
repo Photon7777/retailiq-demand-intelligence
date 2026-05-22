@@ -126,13 +126,19 @@ Then prepare canonical RetailIQ files, including synthetic inventory and weather
 ```bash
 python -m src.ingestion.prepare_walmart_data \
   --input-dir data/raw/walmart \
-  --output-dir data/sample
+  --output-dir data/processed/walmart
 ```
 
 Run the local-to-Snowflake ingestion:
 
 ```bash
 python -m src.ingestion.load_to_snowflake --sample-dir data/sample --truncate-first
+```
+
+For the full prepared Walmart dataset, point the same loader at `data/processed/walmart`:
+
+```bash
+python -m src.ingestion.load_to_snowflake --sample-dir data/processed/walmart --truncate-first
 ```
 
 If your Snowflake account requires MFA/TOTP:
@@ -174,9 +180,9 @@ pytest
 After the raw files and dbt marts are working, generate and publish ML outputs:
 
 ```bash
-python -m src.ml.train_forecast_model --data-dir data/sample --model-dir models
+python -m src.ml.train_forecast_model --data-dir data/processed/walmart --model-dir models
 python -m src.ml.generate_predictions \
-  --data-dir data/sample \
+  --data-dir data/processed/walmart \
   --model-path models/retailiq_forecast_model.pkl \
   --output-dir data/ml_outputs
 ```

@@ -270,6 +270,215 @@ def fetch_forecast_results(config: AppConfig | None = None) -> pd.DataFrame:
     )
 
 
+def _forecast_where_clause(
+    store_id: int | None = None,
+    dept_id: int | None = None,
+    horizon_days: int | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Build safe optional forecast filters for Snowflake queries."""
+    conditions: list[str] = []
+    params: dict[str, Any] = {}
+    if store_id is not None:
+        conditions.append("store_id = %(store_id)s")
+        params["store_id"] = int(store_id)
+    if dept_id is not None:
+        conditions.append("dept_id = %(dept_id)s")
+        params["dept_id"] = int(dept_id)
+    if horizon_days is not None:
+        conditions.append("horizon_days = %(horizon_days)s")
+        params["horizon_days"] = int(horizon_days)
+    clause = f"where {' and '.join(conditions)}" if conditions else ""
+    return clause, params
+
+
+def fetch_forecast_filter_options(config: AppConfig | None = None) -> pd.DataFrame:
+    """Fetch compact filter options for the forecasting page."""
+    if object_exists("MARTS", "FACT_FORECAST", config):
+        fact_forecast = qualified_table("MARTS", "FACT_FORECAST", config)
+        return run_query(
+            f"""
+            select distinct
+                store_id,
+                dept_id,
+                horizon_days
+            from {fact_forecast}
+            order by store_id, dept_id, horizon_days
+            """,
+            config=config,
+        )
+
+    fact_sales = qualified_table("MARTS", "FACT_SALES", config)
+    return run_query(
+        f"""
+        select distinct
+            store_id,
+            dept_id,
+            0 as horizon_days
+        from {fact_sales}
+        order by store_id, dept_id
+        """,
+        config=config,
+    )
+
+
+def fetch_forecast_metrics(
+    config: AppConfig | None = None,
+    store_id: int | None = None,
+    dept_id: int | None = None,
+    horizon_days: int | None = 0,
+) -> pd.DataFrame:
+    """Fetch summary forecast metrics using Snowflake-side aggregation."""
+    if not object_exists("MARTS", "FACT_FORECAST", config):
+        baseline = fetch_baseline_forecast(config)
+        if baseline.empty:
+            return baseline
+        filtered = baseline.copy()
+        if store_id is not None:
+            filtered = filtered[filtered["store_id"] == store_id]
+        if dept_id is not None:
+            filtered = filtered[filtered["dept_id"] == dept_id]
+        denominator = filtered["weekly_sales"].abs().sum()
+        wape = 0 if denominator == 0 else filtered["absolute_error"].sum() / denominator
+        return pd.DataFrame(
+            [
+                {
+                    "predicted_demand": filtered["baseline_forecast"].sum(),
+                    "actual_demand": filtered["weekly_sales"].sum(),
+                    "wape": wape,
+                    "forecast_rows": len(filtered),
+                    "scored_rows": len(filtered),
+                    "start_date": filtered["sales_date"].min(),
+                    "end_date": filtered["sales_date"].max(),
+                }
+            ]
+        )
+
+    fact_forecast = qualified_table("MARTS", "FACT_FORECAST", config)
+    where_clause, params = _forecast_where_clause(store_id, dept_id, horizon_days)
+    return run_query(
+        f"""
+        select
+            coalesce(sum(predicted_demand), 0) as predicted_demand,
+            coalesce(sum(actual_demand), 0) as actual_demand,
+            sum(abs(actual_demand - predicted_demand)) / nullif(sum(abs(actual_demand)), 0) as wape,
+            count(*) as forecast_rows,
+            count_if(actual_demand is not null) as scored_rows,
+            min(forecast_date) as start_date,
+            max(forecast_date) as end_date
+        from {fact_forecast}
+        {where_clause}
+        """,
+        config=config,
+        params=params,
+    )
+
+
+def fetch_forecast_trend(
+    config: AppConfig | None = None,
+    store_id: int | None = None,
+    dept_id: int | None = None,
+    horizon_days: int | None = 0,
+) -> pd.DataFrame:
+    """Fetch weekly aggregated forecast trend for responsive plotting."""
+    if not object_exists("MARTS", "FACT_FORECAST", config):
+        baseline = fetch_baseline_forecast(config)
+        if baseline.empty:
+            return baseline
+        filtered = baseline.copy()
+        if store_id is not None:
+            filtered = filtered[filtered["store_id"] == store_id]
+        if dept_id is not None:
+            filtered = filtered[filtered["dept_id"] == dept_id]
+        grouped = (
+            filtered.groupby("sales_date", as_index=False)
+            .agg(actual_demand=("weekly_sales", "sum"), predicted_demand=("baseline_forecast", "sum"), forecast_rows=("store_id", "size"))
+            .rename(columns={"sales_date": "forecast_date"})
+        )
+        grouped["absolute_error"] = (grouped["actual_demand"] - grouped["predicted_demand"]).abs()
+        grouped["wape"] = grouped["absolute_error"] / grouped["actual_demand"].abs().replace(0, pd.NA)
+        return grouped
+
+    fact_forecast = qualified_table("MARTS", "FACT_FORECAST", config)
+    where_clause, params = _forecast_where_clause(store_id, dept_id, horizon_days)
+    return run_query(
+        f"""
+        select
+            forecast_date,
+            sum(predicted_demand) as predicted_demand,
+            sum(actual_demand) as actual_demand,
+            sum(abs(actual_demand - predicted_demand)) / nullif(sum(abs(actual_demand)), 0) as wape,
+            count(*) as forecast_rows
+        from {fact_forecast}
+        {where_clause}
+        group by forecast_date
+        order by forecast_date
+        """,
+        config=config,
+        params=params,
+    )
+
+
+def fetch_forecast_detail(
+    config: AppConfig | None = None,
+    store_id: int | None = None,
+    dept_id: int | None = None,
+    horizon_days: int | None = 0,
+    limit: int = 250,
+) -> pd.DataFrame:
+    """Fetch a capped detail table for the forecasting page."""
+    if not object_exists("MARTS", "FACT_FORECAST", config):
+        baseline = fetch_baseline_forecast(config)
+        if baseline.empty:
+            return baseline
+        filtered = baseline.copy()
+        if store_id is not None:
+            filtered = filtered[filtered["store_id"] == store_id]
+        if dept_id is not None:
+            filtered = filtered[filtered["dept_id"] == dept_id]
+        filtered = filtered.rename(
+            columns={
+                "sales_date": "forecast_date",
+                "weekly_sales": "actual_demand",
+                "baseline_forecast": "predicted_demand",
+            }
+        )
+        filtered["horizon_days"] = 0
+        filtered["model_version"] = "phase_1_5"
+        return filtered.sort_values("absolute_error", ascending=False).head(limit)
+
+    fact_forecast = qualified_table("MARTS", "FACT_FORECAST", config)
+    where_clause, params = _forecast_where_clause(store_id, dept_id, horizon_days)
+    params["limit"] = int(limit)
+    return run_query(
+        f"""
+        select
+            forecast_date,
+            store_id,
+            dept_id,
+            horizon_days,
+            actual_demand,
+            predicted_demand,
+            prediction_interval_lower,
+            prediction_interval_upper,
+            case
+                when actual_demand is null then null
+                else actual_demand - predicted_demand
+            end as forecast_error,
+            case
+                when actual_demand is null then null
+                else abs(actual_demand - predicted_demand)
+            end as absolute_error,
+            model_version
+        from {fact_forecast}
+        {where_clause}
+        order by forecast_date desc, absolute_error desc nulls last, store_id, dept_id
+        limit %(limit)s
+        """,
+        config=config,
+        params=params,
+    )
+
+
 def fetch_anomaly_candidates(config: AppConfig | None = None) -> pd.DataFrame:
     """Fetch sales rows and apply a simple z-score anomaly screen."""
     fact_sales = qualified_table("MARTS", "FACT_SALES", config)

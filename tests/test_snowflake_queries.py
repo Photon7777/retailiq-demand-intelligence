@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.utils.config import AppConfig
-from src.utils.snowflake_queries import qualified_table
+from src.utils.snowflake_queries import _forecast_where_clause, qualified_table
 
 
 def make_config(database: str = "RETAILIQ_DB") -> AppConfig:
@@ -33,3 +33,12 @@ def test_qualified_table_rejects_unsafe_identifiers() -> None:
     with pytest.raises(ValueError):
         qualified_table("MARTS", "FACT_SALES;DROP TABLE RAW.SALES", make_config())
 
+
+def test_forecast_where_clause_uses_bound_parameters() -> None:
+    clause, params = _forecast_where_clause(store_id=1, dept_id=7, horizon_days=0)
+
+    assert clause == (
+        "where store_id = %(store_id)s and dept_id = %(dept_id)s "
+        "and horizon_days = %(horizon_days)s"
+    )
+    assert params == {"store_id": 1, "dept_id": 7, "horizon_days": 0}

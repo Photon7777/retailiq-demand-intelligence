@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 import streamlit as st
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from src.app_support.streamlit_helpers import apply_global_styles, format_number, load_data, render_sidebar
 from src.utils.snowflake_queries import fetch_platform_summary, fetch_quality_checks

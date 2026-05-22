@@ -76,6 +76,7 @@ def render_sidebar() -> AppConfig:
     return active_config()
 
 
+@st.cache_data(ttl=300, show_spinner=False)
 def load_data(loader: Callable[..., pd.DataFrame], config: AppConfig, *args, **kwargs) -> pd.DataFrame:
     """Run a Snowflake-backed loader and display a graceful message on failure."""
     try:
@@ -97,4 +98,3 @@ def format_number(value: float | int | None) -> str:
     if value is None or pd.isna(value):
         return "0"
     return f"{float(value):,.0f}"
-

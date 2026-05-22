@@ -76,11 +76,10 @@ def render_sidebar() -> AppConfig:
     return active_config()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def load_data(loader: Callable[..., pd.DataFrame], config: AppConfig, *args, **kwargs) -> pd.DataFrame:
+def load_data(_loader: Callable[..., pd.DataFrame], config: AppConfig, *args, **kwargs) -> pd.DataFrame:
     """Run a Snowflake-backed loader and display a graceful message on failure."""
     try:
-        return loader(*args, config=config, **kwargs)
+        return _loader(*args, config=config, **kwargs)
     except Exception as exc:  # noqa: BLE001 - Streamlit should stay up during setup/auth issues
         st.warning(f"Unable to load Snowflake data: {exc}")
         return pd.DataFrame()

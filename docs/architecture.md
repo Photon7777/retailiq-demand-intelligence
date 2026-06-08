@@ -34,7 +34,7 @@ Snowflake stores each major stage in a dedicated schema:
 
 ### Transformation
 
-dbt provides modular SQL transformations, lineage, tests, and documentation. Phase 1 includes starter staging and mart models.
+dbt provides modular SQL transformations, lineage, tests, and documentation. Phase 2 includes staging views, enriched intermediate models, dimensional marts, sales facts, inventory facts, forecast facts, stockout risk facts, and anomaly facts.
 
 ### Machine Learning
 
@@ -42,7 +42,7 @@ Python workflows train a baseline demand forecasting model, generate prediction 
 
 ### Application
 
-Streamlit is the primary presentation layer. It will show executive KPIs, forecasting trends, inventory risk, anomalies, data quality checks, and AI analyst answers.
+Streamlit is the primary presentation layer. It shows executive KPIs, forecasting trends, inventory risk, anomalies, data quality checks, and an early analyst workflow backed by Snowflake marts.
 
 ### AI
 

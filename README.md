@@ -2,7 +2,7 @@
 
 RetailIQ is a portfolio-grade retail analytics platform for demand forecasting, stockout risk monitoring, anomaly detection, and AI-assisted business analysis. The project is designed as an end-to-end cloud-native data product using Google Cloud Storage, Snowflake, dbt, Python, Streamlit, Docker, GitHub, and the OpenAI API.
 
-This repository currently contains the Phase 1 foundation: a professional project structure, setup documentation, Snowflake raw-layer DDL, configuration utilities, a first local CSV-to-Snowflake ingestion path, baseline stockout risk logic, dbt starter models, tests, and a Streamlit shell for future dashboards.
+This repository currently contains the Phase 2 buildout: a professional project structure, Snowflake raw and ML-layer DDL, local and cloud ingestion utilities, dbt staging and mart models, full Walmart data preparation, synthetic inventory and weather generation, baseline forecasting, stockout risk scoring, anomaly detection, tests, and Snowflake-backed Streamlit dashboards.
 
 ## Business Problem
 
@@ -51,7 +51,7 @@ The project also supports planned synthetic data generation for:
 - `inventory.csv`: available inventory, safety stock, and reorder points
 - `weather.csv`: optional weather enrichment for store-date analysis
 
-Place Phase 1 sample files in `data/sample/` before running the ingestion script.
+Place Phase 1 sample files in `data/sample/` for smoke testing, or place the full Kaggle files in `data/raw/walmart/` for the Phase 2 workflow.
 
 ## Planned Features
 
@@ -179,6 +179,26 @@ pytest
 
 After the raw files and dbt marts are working, generate and publish ML outputs:
 
+For a local-only Phase 2 run that prepares the Walmart files, trains the model, and writes ML output CSVs without touching Snowflake:
+
+```bash
+python -m src.pipelines.run_phase2 --local-only
+```
+
+To preview the full end-to-end command plan before running it:
+
+```bash
+python -m src.pipelines.run_phase2 --truncate-first --dry-run
+```
+
+To run the full local-to-Snowflake Phase 2 workflow after your Snowflake objects and MFA cache are ready:
+
+```bash
+python -m src.pipelines.run_phase2 --truncate-first
+```
+
+The individual commands remain available when you want to run one part at a time:
+
 ```bash
 python -m src.ml.train_forecast_model --data-dir data/processed/walmart --model-dir models
 python -m src.ml.generate_predictions \
@@ -204,6 +224,8 @@ dbt run
 dbt test
 cd ..
 ```
+
+See [docs/phase2_runbook.md](docs/phase2_runbook.md) for granular setup, execution, validation, and troubleshooting steps.
 
 ## Docker Compose
 
@@ -246,11 +268,12 @@ The app will be available at `http://localhost:8501`.
 - Generate forecast, stockout risk, and sales anomaly output files
 - Persist model outputs to Snowflake `ML` tables
 - Transform ML outputs into dbt marts for Streamlit dashboards
+- Orchestrate the complete workflow with a repeatable Phase 2 runner
 
 ### Phase 3: Intelligence Layer
 
-- Add anomaly detection workflows
-- Build full Streamlit dashboards
+- Add richer anomaly detection workflows
+- Expand Streamlit dashboard interaction and drilldowns
 - Add model evaluation and explainability
 - Implement AI Retail Analyst chatbot with governed SQL generation
 - Add Docker hardening and deployment documentation

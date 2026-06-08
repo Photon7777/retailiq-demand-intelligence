@@ -12,7 +12,18 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.app_support.streamlit_helpers import apply_global_styles, format_currency, format_number, load_data, render_sidebar
+from src.app_support.streamlit_helpers import (
+    apply_global_styles,
+    configure_plotly_chart,
+    format_compact_currency,
+    format_number,
+    load_data,
+    render_empty_state,
+    render_metric_cards,
+    render_page_header,
+    render_section_header,
+    render_sidebar,
+)
 from src.utils.snowflake_queries import (
     fetch_forecast_detail,
     fetch_forecast_filter_options,
@@ -25,27 +36,20 @@ def _all_label(value: int | None, label: str) -> str:
     return f"All {label}" if value is None else str(value)
 
 
-def _compact_currency(value: float | int | None) -> str:
-    """Keep large full-dataset totals readable in Streamlit metric cards."""
-    if value is None:
-        return "$0"
-    amount = float(value)
-    for suffix, divisor in (("B", 1_000_000_000), ("M", 1_000_000), ("K", 1_000)):
-        if abs(amount) >= divisor:
-            return f"${amount / divisor:,.2f}{suffix}"
-    return format_currency(amount)
-
-
 st.set_page_config(page_title="Demand Forecasting", layout="wide")
 apply_global_styles()
 config = render_sidebar()
 
-st.title("Demand Forecasting")
-st.write("Forecast performance from Snowflake-backed ML marts, aggregated for fast exploration on the full dataset.")
+render_page_header(
+    "Demand Forecasting",
+    "Forecast control room",
+    "Model output, error tracking, and store-department demand trends aggregated directly in Snowflake.",
+    ["Actual vs forecast", "WAPE", "Store filters"],
+)
 
 options = load_data(fetch_forecast_filter_options, config)
 if options.empty:
-    st.info("No forecast data available yet. Load ML outputs and run dbt to populate `MARTS.FACT_FORECAST`.")
+    render_empty_state("No forecast data", "Load ML outputs and run dbt to populate MARTS.FACT_FORECAST.")
     st.stop()
 
 store_options: list[int | None] = [None] + sorted(options["store_id"].dropna().astype(int).unique().tolist())
@@ -54,24 +58,26 @@ horizon_values = sorted(options["horizon_days"].dropna().astype(int).unique().to
 horizon_options: list[int | None] = [None] + horizon_values
 horizon_default_index = horizon_options.index(0) if 0 in horizon_options else 0
 
-filter_cols = st.columns([1, 1, 1, 1])
-selected_store = filter_cols[0].selectbox(
-    "Store",
-    store_options,
-    format_func=lambda value: _all_label(value, "stores"),
-)
-selected_dept = filter_cols[1].selectbox(
-    "Department",
-    dept_options,
-    format_func=lambda value: _all_label(value, "departments"),
-)
-selected_horizon = filter_cols[2].selectbox(
-    "Forecast Horizon",
-    horizon_options,
-    index=horizon_default_index,
-    format_func=lambda value: "All horizons" if value is None else f"{value} days",
-)
-detail_limit = filter_cols[3].selectbox("Detail Rows", [100, 250, 500, 1000], index=1)
+render_section_header("Forecast Filters", "Scope the model results without pulling the full table into the app.")
+with st.container(border=True):
+    filter_cols = st.columns([1, 1, 1, 1])
+    selected_store = filter_cols[0].selectbox(
+        "Store",
+        store_options,
+        format_func=lambda value: _all_label(value, "stores"),
+    )
+    selected_dept = filter_cols[1].selectbox(
+        "Department",
+        dept_options,
+        format_func=lambda value: _all_label(value, "departments"),
+    )
+    selected_horizon = filter_cols[2].selectbox(
+        "Forecast Horizon",
+        horizon_options,
+        index=horizon_default_index,
+        format_func=lambda value: "All horizons" if value is None else f"{value} days",
+    )
+    detail_limit = filter_cols[3].selectbox("Detail Rows", [100, 250, 500, 1000], index=1)
 
 metrics = load_data(
     fetch_forecast_metrics,
@@ -97,22 +103,25 @@ detail = load_data(
 )
 
 if metrics.empty:
-    st.info("No forecast rows match the current filters.")
+    render_empty_state("No matching rows", "Adjust filters to broaden the forecast scope.")
     st.stop()
 
 metric_row = metrics.iloc[0]
-metric_cols = st.columns(4)
-metric_cols[0].metric("Predicted Demand", _compact_currency(metric_row.get("predicted_demand")))
-metric_cols[1].metric("Actual Demand", _compact_currency(metric_row.get("actual_demand")))
 wape = metric_row.get("wape")
-metric_cols[2].metric("WAPE", "N/A" if wape is None or wape != wape else f"{float(wape):.1%}")
-metric_cols[3].metric("Forecast Rows", format_number(metric_row.get("forecast_rows")))
+render_metric_cards(
+    [
+        {"label": "Predicted Demand", "value": format_compact_currency(metric_row.get("predicted_demand")), "helper": "Model estimate", "tone": "teal"},
+        {"label": "Actual Demand", "value": format_compact_currency(metric_row.get("actual_demand")), "helper": "Observed sales demand", "tone": "blue"},
+        {"label": "WAPE", "value": "N/A" if wape is None or wape != wape else f"{float(wape):.1%}", "helper": "Weighted error", "tone": "amber"},
+        {"label": "Forecast Rows", "value": format_number(metric_row.get("forecast_rows")), "helper": "Rows in current scope", "tone": "green"},
+    ]
+)
 
 chart_col, table_col = st.columns([1.35, 1])
 with chart_col:
-    st.subheader("Weekly Actual vs Forecast")
+    render_section_header("Weekly Actual vs Forecast", "Trend comparison for the selected scope.")
     if trend.empty:
-        st.info("No trend data matches the current filters.")
+        render_empty_state("No trend data", "No forecast dates match the selected filters.")
     else:
         chart_df = trend.melt(
             id_vars=["forecast_date"],
@@ -121,13 +130,14 @@ with chart_col:
             value_name="demand",
         ).dropna(subset=["demand"])
         fig = px.line(chart_df, x="forecast_date", y="demand", color="series", markers=False)
-        fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), yaxis_title="Demand", xaxis_title=None)
+        fig.update_layout(yaxis_title="Demand", xaxis_title=None)
+        configure_plotly_chart(fig, height=430)
         st.plotly_chart(fig, use_container_width=True)
 
 with table_col:
-    st.subheader("Forecast Detail")
+    render_section_header("Forecast Detail", "Recent forecast rows from Snowflake.")
     if detail.empty:
-        st.info("No detail rows match the current filters.")
+        render_empty_state("No detail rows", "No forecast rows match the current filters.")
     else:
         st.dataframe(
             detail[
@@ -148,11 +158,12 @@ with table_col:
         )
 
 if not trend.empty and "wape" in trend.columns:
-    st.subheader("Weekly Error")
+    render_section_header("Weekly Error", "Weighted absolute percentage error by forecast date.")
     error_df = trend.dropna(subset=["wape"]).copy()
     if error_df.empty:
-        st.info("WAPE is not available for unscored future horizon rows.")
+        render_empty_state("No WAPE", "WAPE is not available for unscored future horizon rows.")
     else:
         fig = px.bar(error_df, x="forecast_date", y="wape")
-        fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), yaxis_title="WAPE", xaxis_title=None)
+        fig.update_layout(yaxis_title="WAPE", xaxis_title=None)
+        configure_plotly_chart(fig, height=320)
         st.plotly_chart(fig, use_container_width=True)

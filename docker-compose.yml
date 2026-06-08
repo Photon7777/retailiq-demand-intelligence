@@ -10,7 +10,6 @@ services:
       - "8501:8501"
     command: >
       bash -lc "pip install --no-cache-dir -r requirements.txt &&
-      streamlit run app/streamlit_app.py
+      streamlit run app/RetailIQ_Home.py
       --server.address=0.0.0.0
       --server.port=8501"
-

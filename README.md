@@ -168,7 +168,7 @@ Replace `123456` with the current 6-digit authenticator code.
 Launch the Streamlit app:
 
 ```bash
-streamlit run app/streamlit_app.py
+streamlit run app/RetailIQ_Home.py
 ```
 
 Run tests:

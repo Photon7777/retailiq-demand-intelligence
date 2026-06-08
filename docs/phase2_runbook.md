@@ -117,7 +117,7 @@ Expected full Walmart scale is roughly:
 Start Streamlit:
 
 ```bash
-streamlit run app/streamlit_app.py
+streamlit run app/RetailIQ_Home.py
 ```
 
 Then check:

@@ -14,8 +14,13 @@ if str(ROOT_DIR) not in sys.path:
 
 from src.app_support.streamlit_helpers import (  # noqa: E402
     apply_global_styles,
-    format_currency,
+    format_compact_currency,
     format_number,
+    render_empty_state,
+    render_metric_cards,
+    render_page_header,
+    render_section_header,
+    render_status_grid,
     load_data,
     render_sidebar,
 )
@@ -33,10 +38,11 @@ apply_global_styles()
 config = render_sidebar()
 
 
-st.title("RetailIQ: Cloud-Native Retail Demand Intelligence Platform")
-st.write(
-    "A Snowflake-backed retail analytics platform for demand forecasting, stockout risk monitoring, "
-    "sales anomaly detection, and AI-assisted business analysis."
+render_page_header(
+    "RetailIQ",
+    "Cloud-native retail demand intelligence",
+    "A Snowflake-backed analytics command center for demand forecasting, stockout risk, sales anomalies, and AI-assisted business analysis.",
+    ["Snowflake", "dbt", "Streamlit", "Cloud Run"],
 )
 
 metrics = load_data(fetch_executive_metrics, config)
@@ -45,12 +51,35 @@ platform_summary = load_data(fetch_platform_summary, config)
 if st.session_state.get("snowflake_status", {}).get("ok"):
     st.success(st.session_state["snowflake_status"]["message"])
 else:
-    st.info("Use the sidebar connection check to validate Snowflake and refresh live dashboard data.")
+    st.info("Use the sidebar connection check to validate Snowflake and refresh dashboard data.")
 
-overview_col, architecture_col = st.columns([1.1, 1])
+raw_count = 0 if platform_summary.empty else platform_summary.query("table_schema == 'RAW'")["table_name"].nunique()
+mart_count = 0 if platform_summary.empty else platform_summary.query("table_schema == 'MARTS'")["table_name"].nunique()
+ml_count = 0 if platform_summary.empty else platform_summary.query("table_schema == 'ML'")["table_name"].nunique()
+metric_values = metrics.iloc[0] if not metrics.empty else {}
+
+render_metric_cards(
+    [
+        {"label": "Total Sales", "value": format_compact_currency(metric_values.get("total_sales")), "helper": "Mart-backed sales", "tone": "teal"},
+        {"label": "Raw Tables", "value": format_number(raw_count or 5), "helper": "Source layer", "tone": "blue"},
+        {"label": "Mart Tables", "value": format_number(mart_count or 5), "helper": "Analytics layer", "tone": "green"},
+        {"label": "ML Tables", "value": format_number(ml_count or 3), "helper": "Forecast, risk, anomalies", "tone": "amber"},
+    ]
+)
+
+render_status_grid(
+    [
+        ("Runtime", "Cloud Run"),
+        ("Warehouse", "Snowflake"),
+        ("Transform", "dbt marts"),
+        ("Interface", "Streamlit"),
+    ]
+)
+
+overview_col, architecture_col = st.columns([1.05, 1])
 
 with overview_col:
-    st.subheader("Project Overview")
+    render_section_header("Project Overview", "Pipeline layers and operational workflows.")
     st.write(
         "RetailIQ ingests raw retail data, transforms it into analytics-ready tables, generates demand "
         "signals, and serves operational insights through Streamlit and an AI analyst interface."
@@ -66,37 +95,17 @@ with overview_col:
     )
 
 with architecture_col:
-    st.subheader("Architecture Summary")
+    render_section_header("Architecture Summary", "Cloud-native path from raw files to decisions.")
     st.markdown(
         """
         `CSV / GCS` -> `Snowflake RAW` -> `dbt STAGING` -> `dbt MARTS` -> `Snowflake ML` -> `Streamlit + AI Analyst`
         """
     )
-    st.info("Phase 2 adds canonical Walmart prep, baseline ML outputs, and Snowflake-backed model marts.")
+    st.info("Phase 2 adds Walmart prep, baseline ML outputs, and Snowflake-backed model marts.")
 
-st.subheader("Pipeline Status")
-status_cols = st.columns(4)
-if not platform_summary.empty:
-    raw_count = platform_summary.query("table_schema == 'RAW'")["table_name"].nunique()
-    mart_count = platform_summary.query("table_schema == 'MARTS'")["table_name"].nunique()
-    ml_count = platform_summary.query("table_schema == 'ML'")["table_name"].nunique()
-    status_cols[0].metric("Raw Tables", format_number(raw_count))
-    status_cols[1].metric("Mart Tables", format_number(mart_count))
-    status_cols[2].metric("ML Tables", format_number(ml_count))
-else:
-    status_cols[0].metric("Raw Tables", "5")
-    status_cols[1].metric("Mart Tables", "5")
-    status_cols[2].metric("ML Tables", "3")
-
-if not metrics.empty:
-    first_row = metrics.iloc[0]
-    status_cols[3].metric("Total Sales", format_currency(first_row.get("total_sales")))
-else:
-    status_cols[3].metric("Total Sales", "$0")
-
-st.subheader("Warehouse Objects")
+render_section_header("Warehouse Objects", "Live object inventory from Snowflake.")
 if platform_summary.empty:
-    st.info("Run the sample ingestion and dbt commands to populate live object metadata.")
+    render_empty_state("No object metadata", "Snowflake objects will appear here after the warehouse connection is available.")
 else:
     st.dataframe(
         platform_summary[["table_schema", "table_name", "table_type", "row_count", "last_altered"]],
@@ -104,7 +113,7 @@ else:
         hide_index=True,
     )
 
-st.subheader("Next Build Areas")
+render_section_header("Next Build Areas", "Upcoming product increments.")
 next_cols = st.columns(3)
 with next_cols[0]:
     st.markdown("**Forecasting Model**")

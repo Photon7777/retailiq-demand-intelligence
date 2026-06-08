@@ -45,7 +45,7 @@ platform_summary = load_data(fetch_platform_summary, config)
 if st.session_state.get("snowflake_status", {}).get("ok"):
     st.success(st.session_state["snowflake_status"]["message"])
 else:
-    st.info("Use the sidebar MFA field to check Snowflake and refresh live dashboard data.")
+    st.info("Use the sidebar connection check to validate Snowflake and refresh live dashboard data.")
 
 overview_col, architecture_col = st.columns([1.1, 1])
 

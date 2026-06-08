@@ -38,10 +38,17 @@ def apply_global_styles() -> None:
 def active_config() -> AppConfig:
     """Return config with the current Streamlit MFA passcode, when provided."""
     config = get_config()
+    if is_key_pair_auth(config):
+        return config
     passcode = st.session_state.get("snowflake_mfa_code", "").strip()
     if passcode:
         return replace(config, snowflake_passcode=passcode)
     return config
+
+
+def is_key_pair_auth(config: AppConfig) -> bool:
+    """Return whether Snowflake is configured for service-account key-pair auth."""
+    return (config.snowflake_authenticator or "").lower() == "snowflake_jwt"
 
 
 def render_sidebar() -> AppConfig:
@@ -51,13 +58,17 @@ def render_sidebar() -> AppConfig:
         st.caption("Demand intelligence platform")
         st.divider()
         st.markdown("**Snowflake**")
-        st.text_input(
-            "MFA code",
-            key="snowflake_mfa_code",
-            max_chars=6,
-            type="password",
-            help="Enter the current 6-digit Snowflake authenticator code before checking the connection.",
-        )
+        config = get_config()
+        if is_key_pair_auth(config):
+            st.caption("Using deployed key-pair authentication.")
+        else:
+            st.text_input(
+                "MFA code",
+                key="snowflake_mfa_code",
+                max_chars=6,
+                type="password",
+                help="Enter the current 6-digit Snowflake authenticator code before checking the connection.",
+            )
         if st.button("Check connection", use_container_width=True):
             ok, message = test_snowflake_connection(active_config())
             st.session_state["snowflake_status"] = {"ok": ok, "message": message}

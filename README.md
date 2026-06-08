@@ -1,5 +1,7 @@
 # RetailIQ: Cloud-Native Retail Demand Intelligence Platform
 
+[Live Demo](https://retailiq-demand-intelligence-420746557396.us-central1.run.app) | [Deployment Guide](cloud/cloud_run_deploy.md)
+
 RetailIQ is a portfolio-grade retail analytics platform for demand forecasting, stockout risk monitoring, anomaly detection, and AI-assisted business analysis. The project is designed as an end-to-end cloud-native data product using Google Cloud Storage, Snowflake, dbt, Python, Streamlit, Docker, GitHub, and the OpenAI API.
 
 This repository currently contains the Phase 2 buildout: a professional project structure, Snowflake raw and ML-layer DDL, local and cloud ingestion utilities, dbt staging and mart models, full Walmart data preparation, synthetic inventory and weather generation, baseline forecasting, stockout risk scoring, anomaly detection, tests, and Snowflake-backed Streamlit dashboards.

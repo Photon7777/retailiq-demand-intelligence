@@ -35,7 +35,7 @@ The planned platform follows a layered analytics architecture:
 - **Data and ML**: Python, pandas, NumPy, scikit-learn, XGBoost
 - **Application**: Streamlit and Plotly
 - **AI**: OpenAI API and LangChain
-- **DevOps**: Docker Compose and GitHub
+- **DevOps**: Docker, Docker Compose, Google Cloud Run, and GitHub
 - **Testing**: pytest
 
 ## Dataset
@@ -238,6 +238,19 @@ docker compose up --build
 
 The app will be available at `http://localhost:8501`.
 
+## Deployment
+
+RetailIQ is deployment-ready for Google Cloud Run using the included `Dockerfile`.
+
+The recommended public deployment path is:
+
+1. Create a read-only Snowflake app user with key-pair authentication.
+2. Store the Snowflake private key in Google Secret Manager.
+3. Deploy the Streamlit container to Cloud Run with `--min-instances 0` and a small max instance count.
+4. Keep the local Walmart CSVs and generated model files out of the container image with `.dockerignore`.
+
+See [cloud/cloud_run_deploy.md](cloud/cloud_run_deploy.md) for the full step-by-step deployment guide.
+
 ## Project Roadmap
 
 ### Phase 1: Foundation
@@ -276,7 +289,7 @@ The app will be available at `http://localhost:8501`.
 - Expand Streamlit dashboard interaction and drilldowns
 - Add model evaluation and explainability
 - Implement AI Retail Analyst chatbot with governed SQL generation
-- Add Docker hardening and deployment documentation
+- Add richer deployment automation and CI/CD
 
 ### Phase 4: Portfolio Polish
 

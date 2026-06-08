@@ -18,6 +18,8 @@ class AppConfig:
     snowflake_user: str | None
     snowflake_password: str | None
     snowflake_authenticator: str | None
+    snowflake_private_key_file: str | None
+    snowflake_private_key_file_pwd: str | None
     snowflake_passcode: str | None
     snowflake_passcode_in_password: bool
     snowflake_role: str | None
@@ -61,6 +63,8 @@ def get_config(env_file: str | Path | None = None) -> AppConfig:
         snowflake_user=_read_env("SNOWFLAKE_USER"),
         snowflake_password=_read_env("SNOWFLAKE_PASSWORD"),
         snowflake_authenticator=_read_env("SNOWFLAKE_AUTHENTICATOR"),
+        snowflake_private_key_file=_read_env("SNOWFLAKE_PRIVATE_KEY_FILE"),
+        snowflake_private_key_file_pwd=_read_env("SNOWFLAKE_PRIVATE_KEY_FILE_PWD"),
         snowflake_passcode=_read_env("SNOWFLAKE_PASSCODE"),
         snowflake_passcode_in_password=_read_bool_env("SNOWFLAKE_PASSCODE_IN_PASSWORD"),
         snowflake_role=_read_env("SNOWFLAKE_ROLE"),

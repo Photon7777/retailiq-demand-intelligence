@@ -25,6 +25,8 @@ def get_snowflake_connection(config: AppConfig | None = None) -> SnowflakeConnec
     config = config or get_config()
     missing = config.missing(SNOWFLAKE_REQUIRED_CONFIG)
     authenticator = (config.snowflake_authenticator or "snowflake").lower()
+    if authenticator == "snowflake_jwt" and not config.snowflake_private_key_file:
+        missing.append("snowflake_private_key_file")
     if authenticator in {"snowflake", "username_password_mfa"} and not config.snowflake_password:
         missing.append("snowflake_password")
     if missing:
@@ -38,10 +40,15 @@ def get_snowflake_connection(config: AppConfig | None = None) -> SnowflakeConnec
         "database": config.snowflake_database,
         "schema": config.snowflake_schema,
     }
-    if config.snowflake_password:
+    if config.snowflake_password and authenticator != "snowflake_jwt":
         connection_kwargs["password"] = config.snowflake_password
     if config.snowflake_authenticator:
         connection_kwargs["authenticator"] = config.snowflake_authenticator
+    if authenticator == "snowflake_jwt":
+        connection_kwargs["private_key_file"] = config.snowflake_private_key_file
+        if config.snowflake_private_key_file_pwd:
+            connection_kwargs["private_key_file_pwd"] = config.snowflake_private_key_file_pwd
+    elif config.snowflake_authenticator:
         connection_kwargs["client_request_mfa_token"] = True
         connection_kwargs["client_store_temporary_credential"] = True
     if config.snowflake_passcode:

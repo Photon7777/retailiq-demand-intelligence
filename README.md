@@ -1,10 +1,26 @@
 # RetailIQ: Cloud-Native Retail Demand Intelligence Platform
 
-[Live Demo](https://retailiq-demand-intelligence-420746557396.us-central1.run.app) | [Deployment Guide](cloud/cloud_run_deploy.md)
+[Live Demo](https://retailiq-demand-intelligence-420746557396.us-central1.run.app) | [Demo Script](docs/demo_script.md) | [Portfolio Walkthrough](docs/portfolio_walkthrough.md) | [Deployment Guide](cloud/cloud_run_deploy.md)
 
 RetailIQ is a portfolio-grade retail analytics platform for demand forecasting, stockout risk monitoring, anomaly detection, and AI-assisted business analysis. The project is designed as an end-to-end cloud-native data product using Google Cloud Storage, Snowflake, dbt, Python, Streamlit, Docker, GitHub, and the OpenAI API.
 
-This repository currently contains the Phase 2 buildout: a professional project structure, Snowflake raw and ML-layer DDL, local and cloud ingestion utilities, dbt staging and mart models, full Walmart data preparation, synthetic inventory and weather generation, baseline forecasting, stockout risk scoring, anomaly detection, tests, and Snowflake-backed Streamlit dashboards.
+This repository currently contains the Phase 3 buildout: a professional project structure, Snowflake raw and ML-layer DDL, local and cloud ingestion utilities, dbt staging and mart models, full Walmart data preparation, synthetic inventory and weather generation, baseline forecasting, stockout risk scoring, anomaly detection, governed AI analyst workflows, tests, Docker packaging, and a public Google Cloud Run deployment.
+
+## Product Preview
+
+![RetailIQ home dashboard](screenshots/retailiq_home.png)
+
+| Executive overview | Demand forecasting |
+| --- | --- |
+| ![RetailIQ executive overview](screenshots/executive_overview.png) | ![RetailIQ demand forecasting](screenshots/demand_forecasting.png) |
+
+## Portfolio Highlights
+
+- **End-to-end data product**: raw Walmart data is prepared, loaded into Snowflake, transformed with dbt, scored with Python ML workflows, and served through Streamlit.
+- **Cloud deployment**: the public app runs on Google Cloud Run with Docker, Secret Manager, and Snowflake key-pair authentication.
+- **Governed AI analyst**: OpenAI-generated analysis is constrained to approved Snowflake mart tables, read-only SQL, row limits, and visible query traceability.
+- **Operational retail workflows**: dashboards cover executive KPIs, forecast accuracy, stockout exposure, anomaly investigation, and data quality.
+- **Production-minded foundation**: tests, GitHub Actions CI, runbooks, cost controls, deployment docs, and credential hygiene are included from the start.
 
 ## Business Problem
 
@@ -20,14 +36,16 @@ RetailIQ is built to turn raw retail data into a Snowflake-backed intelligence l
 
 ## Solution Architecture
 
-The planned platform follows a layered analytics architecture:
+The platform follows a layered analytics architecture:
 
 1. **Data ingestion**: Walmart sales, stores, features, weather, and synthetic inventory files are staged locally and uploaded to Google Cloud Storage.
 2. **Cloud warehouse**: Snowflake stores raw data in `RAW`, transformed tables in `STAGING` and `MARTS`, and model outputs in `ML` and `ANALYTICS`.
 3. **Transformations**: dbt models clean, type, join, and document the analytics layer.
 4. **Machine learning**: Python models generate demand forecasts, stockout risk scores, and anomaly flags.
 5. **Application layer**: Streamlit provides executive KPIs, demand forecasts, inventory risk, anomaly investigation, data quality checks, and an AI analyst interface.
-6. **AI analyst**: OpenAI-powered workflows translate business questions into governed Snowflake-backed answers.
+6. **AI analyst**: OpenAI-powered workflows translate business questions into governed Snowflake-backed answers with SQL guardrails.
+
+For a deeper narrative, see [docs/architecture.md](docs/architecture.md) and [docs/portfolio_walkthrough.md](docs/portfolio_walkthrough.md).
 
 ## Tech Stack
 
@@ -66,7 +84,20 @@ Place Phase 1 sample files in `data/sample/` for smoke testing, or place the ful
 - Data quality monitoring
 - Streamlit executive dashboard
 - AI Retail Analyst chatbot using Snowflake-backed SQL
-- Dockerized local development and deployment-ready project layout
+- Dockerized local development and Cloud Run deployment
+
+## Demo Walkthrough
+
+Use [docs/demo_script.md](docs/demo_script.md) for a 4 to 6 minute walkthrough.
+
+Recommended demo path:
+
+1. Start on the live home page and explain the Snowflake-backed command center.
+2. Open **Executive Overview** to show sales, store coverage, and risk KPIs.
+3. Open **Demand Forecasting** to show forecast quality, filters, and model output marts.
+4. Open **Stockout Risk** and **Anomaly Center** to show operational model outputs.
+5. Open **AI Retail Analyst** and ask a governed business question.
+6. Close with the repository structure, tests, and deployment guide.
 
 ## Quick Start
 

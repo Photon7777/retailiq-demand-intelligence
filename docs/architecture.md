@@ -16,6 +16,20 @@ Local CSV / GCS
     -> AI Retail Analyst
 ```
 
+```mermaid
+flowchart LR
+    A["Walmart CSV files"] --> B["Python preparation"]
+    B --> C["Snowflake RAW"]
+    C --> D["dbt STAGING"]
+    D --> E["dbt MARTS"]
+    B --> F["Python ML workflows"]
+    F --> G["Snowflake ML"]
+    G --> E
+    E --> H["Streamlit dashboards"]
+    E --> I["Governed AI Retail Analyst"]
+    I --> J["Read-only SQL answers"]
+```
+
 ## Layers
 
 ### Ingestion
@@ -46,4 +60,4 @@ Streamlit is the primary presentation layer. It shows executive KPIs, forecastin
 
 ### AI
 
-The AI Retail Analyst will use OpenAI to interpret business questions, generate governed read-only SQL, execute against Snowflake, and summarize results in business language.
+The AI Retail Analyst uses OpenAI to interpret business questions, generate governed read-only SQL, execute against Snowflake, and summarize results in business language. SQL guardrails restrict the analyst to approved `MARTS` objects, block writes and account metadata, enforce row limits, and show generated SQL for traceability.

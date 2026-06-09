@@ -30,6 +30,7 @@ class AppConfig:
     gcp_bucket_name: str | None
     google_application_credentials: str | None
     openai_api_key: str | None
+    openai_model: str = "gpt-5-mini"
 
     def missing(self, keys: Iterable[str]) -> list[str]:
         """Return required keys that are not configured."""
@@ -75,6 +76,7 @@ def get_config(env_file: str | Path | None = None) -> AppConfig:
         gcp_bucket_name=_read_env("GCP_BUCKET_NAME"),
         google_application_credentials=_read_env("GOOGLE_APPLICATION_CREDENTIALS"),
         openai_api_key=_read_env("OPENAI_API_KEY"),
+        openai_model=_read_env("OPENAI_MODEL") or "gpt-5-mini",
     )
 
 

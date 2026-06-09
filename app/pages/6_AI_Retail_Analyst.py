@@ -5,23 +5,22 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+import pandas as pd
 import streamlit as st
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from src.app_support.streamlit_helpers import (
+from src.ai.retail_analyst_agent import AnalystResponse, answer_business_question  # noqa: E402
+from src.app_support.streamlit_helpers import (  # noqa: E402
     apply_global_styles,
-    format_currency,
-    format_number,
-    load_data,
-    render_answer_panel,
+    render_empty_state,
+    render_metric_cards,
     render_page_header,
     render_section_header,
     render_sidebar,
 )
-from src.utils.snowflake_queries import fetch_executive_metrics, fetch_stockout_risk_results, fetch_store_sales
 
 st.set_page_config(page_title="AI Retail Analyst", layout="wide")
 apply_global_styles()
@@ -29,68 +28,108 @@ config = render_sidebar()
 
 render_page_header(
     "AI Retail Analyst",
-    "Business question workspace",
-    "A governed analyst interface that turns retail questions into Snowflake-backed answers and SQL traces.",
-    ["Question answering", "SQL trace", "Snowflake marts"],
+    "Governed business question workspace",
+    "Ask plain-English retail questions, generate safe Snowflake SQL, and inspect the query trace behind every answer.",
+    ["OpenAI-ready", "Read-only SQL", "MARTS governed", "Traceable answers"],
 )
 
-question_col, context_col = st.columns([1.2, 0.8])
+if "analyst_history" not in st.session_state:
+    st.session_state["analyst_history"] = []
+
+openai_ready = bool(config.openai_api_key)
+render_metric_cards(
+    [
+        {
+            "label": "Analyst Mode",
+            "value": "OpenAI" if openai_ready else "Template",
+            "helper": "LLM synthesis active" if openai_ready else "Add OPENAI_API_KEY to enable LLM mode",
+            "tone": "lime" if openai_ready else "amber",
+        },
+        {"label": "SQL Scope", "value": "MARTS", "helper": "Approved tables only", "tone": "cobalt"},
+        {"label": "Query Type", "value": "SELECT", "helper": "Read-only guardrails", "tone": "mint"},
+        {
+            "label": "History",
+            "value": str(len(st.session_state["analyst_history"])),
+            "helper": "Questions this session",
+            "tone": "violet",
+        },
+    ]
+)
+
+question_col, guide_col = st.columns([1.25, 0.85])
 with question_col:
-    render_section_header("Ask A Question", "Use a governed question pattern backed by Snowflake marts.")
+    render_section_header("Ask RetailIQ", "Questions are translated into governed Snowflake SQL.")
     with st.container(border=True):
-        suggested = st.selectbox(
+        suggested_question = st.selectbox(
             "Suggested question",
             [
-                "What are total sales?",
-                "Which store has the highest sales?",
+                "What are total sales and how many stores are represented?",
+                "Which stores have the highest sales?",
+                "How accurate is the demand forecast?",
+                "Which departments have the highest sales?",
+                "Summarize stockout risk by category.",
                 "Which rows have the highest stockout risk?",
+                "Summarize sales anomalies by severity.",
             ],
         )
-        question = st.text_input("Business question", value=suggested)
-        ask = st.button("Ask Analyst", type="primary", use_container_width=True)
+        question = st.text_area(
+            "Business question",
+            value=suggested_question,
+            height=96,
+            placeholder="Ask about sales, stores, forecast accuracy, stockout risk, or anomalies.",
+        )
+        controls = st.columns([1, 1])
+        row_limit = controls[0].selectbox("Result row limit", [25, 50, 100, 250], index=2)
+        ask = controls[1].button("Ask Analyst", type="primary", use_container_width=True)
 
-with context_col:
-    render_section_header("Analyst Context", "Current preview scope.")
-    st.info("The Phase 3 build will connect this workspace to OpenAI-backed SQL generation with guardrails.")
+with guide_col:
+    render_section_header("Guardrails", "How the analyst keeps database access controlled.")
+    st.markdown(
+        """
+        - Uses approved `MARTS` tables only
+        - Blocks writes, DDL, account metadata, and multi-statement SQL
+        - Adds result limits for detail queries
+        - Shows generated SQL and result preview every time
+        """
+    )
+    if openai_ready:
+        st.success(f"OpenAI synthesis is configured with `{config.openai_model}`.")
+    else:
+        st.warning("OpenAI key is not configured yet. RetailIQ will use deterministic governed query templates.")
 
 if ask:
-    with st.spinner("Querying Snowflake marts..."):
-        normalized = question.lower()
-        if "total" in normalized and "sales" in normalized:
-            metrics = load_data(fetch_executive_metrics, config)
-            if metrics.empty:
-                st.session_state["analyst_answer"] = "I could not load sales metrics from Snowflake yet."
-            else:
-                row = metrics.iloc[0]
-                st.session_state["analyst_answer"] = (
-                    f"Total sales in the current mart sample are {format_currency(row.get('total_sales'))} "
-                    f"across {format_number(row.get('sales_records'))} sales records."
-                )
-            st.session_state["analyst_sql"] = "select sum(weekly_sales) from RETAILIQ_DB.MARTS.FACT_SALES;"
-        elif "highest" in normalized and "sales" in normalized:
-            stores = load_data(fetch_store_sales, config)
-            if stores.empty:
-                st.session_state["analyst_answer"] = "I could not load store sales from Snowflake yet."
-            else:
-                row = stores.iloc[0]
-                st.session_state["analyst_answer"] = (
-                    f"Store {int(row['store_id'])} has the highest sales at {format_currency(row['total_sales'])}."
-                )
-            st.session_state["analyst_sql"] = "select store_id, sum(weekly_sales) from RETAILIQ_DB.MARTS.FACT_SALES group by 1;"
-        else:
-            risk = load_data(fetch_stockout_risk_results, config)
-            if risk.empty:
-                st.session_state["analyst_answer"] = "I could not load stockout risk rows from Snowflake yet."
-            else:
-                top = risk.sort_values("stockout_risk_score", ascending=False).iloc[0]
-                st.session_state["analyst_answer"] = (
-                    f"The highest stockout risk row is store {int(top['store_id'])}, department {int(top['dept_id'])}, "
-                    f"with a score of {top['stockout_risk_score']:.2f} and category {top['risk_category']}."
-                )
-            st.session_state["analyst_sql"] = "select * from RETAILIQ_DB.MARTS.FACT_STOCKOUT_RISK;"
+    with st.spinner("Generating governed SQL and querying Snowflake..."):
+        try:
+            response = answer_business_question(question, config=config, row_limit=int(row_limit))
+            st.session_state["analyst_history"].insert(0, response)
+        except Exception as exc:  # noqa: BLE001 - keep the Streamlit app responsive
+            st.error(f"The analyst could not answer this question: {exc}")
 
-render_section_header("Answer", "Analyst response.")
-render_answer_panel(st.session_state.get("analyst_answer", "No response yet."))
+render_section_header("Conversation", "Latest answers with query traceability.")
+if not st.session_state["analyst_history"]:
+    render_empty_state(
+        "No analyst questions yet",
+        "Ask a question above to generate Snowflake SQL, execute it, and review the answer trace.",
+    )
 
-render_section_header("Query Trace", "SQL preview for transparency.")
-st.code(st.session_state.get("analyst_sql", "-- Query preview will appear after asking a question."), language="sql")
+for index, item in enumerate(st.session_state["analyst_history"][:5], start=1):
+    response: AnalystResponse = item
+    with st.container(border=True):
+        st.markdown(f"**Question {index}:** {response.question}")
+        if response.warning:
+            st.warning(response.warning)
+        st.markdown(response.answer)
+        trace_tab, data_tab = st.tabs(["SQL Trace", "Result Preview"])
+        with trace_tab:
+            st.caption(f"Rationale: {response.rationale}")
+            st.code(response.sql, language="sql")
+            st.caption(
+                f"Rows returned: {response.row_count:,} | "
+                f"Mode: {'OpenAI' if response.used_openai else 'Deterministic'} | "
+                f"Model setting: {response.model or 'not configured'}"
+            )
+        with data_tab:
+            if response.result_preview:
+                st.dataframe(pd.DataFrame(response.result_preview), use_container_width=True, hide_index=True)
+            else:
+                render_empty_state("No rows returned", "The governed query executed but did not return result rows.")

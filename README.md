@@ -287,10 +287,13 @@ See [cloud/cloud_run_deploy.md](cloud/cloud_run_deploy.md) for the full step-by-
 
 ### Phase 3: Intelligence Layer
 
+- Build governed AI Retail Analyst flow with safe SQL generation
+- Execute read-only Snowflake `MARTS` queries with row limits
+- Show answer, SQL rationale, generated SQL, and result preview in Streamlit
+- Support deterministic analyst templates when `OPENAI_API_KEY` is not configured
 - Add richer anomaly detection workflows
 - Expand Streamlit dashboard interaction and drilldowns
 - Add model evaluation and explainability
-- Implement AI Retail Analyst chatbot with governed SQL generation
 - Add richer deployment automation and CI/CD
 
 ### Phase 4: Portfolio Polish

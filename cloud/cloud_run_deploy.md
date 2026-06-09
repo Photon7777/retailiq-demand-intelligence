@@ -154,7 +154,7 @@ gcloud run deploy retailiq-demand-intelligence \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 2 \
-  --set-env-vars "SNOWFLAKE_ACCOUNT=your-snowflake-account,SNOWFLAKE_USER=RETAILIQ_APP_USER,SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT,SNOWFLAKE_ROLE=RETAILIQ_APP_ROLE,SNOWFLAKE_WAREHOUSE=RETAILIQ_WH,SNOWFLAKE_DATABASE=RETAILIQ_DB,SNOWFLAKE_SCHEMA=MARTS,SNOWFLAKE_PRIVATE_KEY_FILE=/secrets/snowflake_private_key.p8" \
+  --set-env-vars "SNOWFLAKE_ACCOUNT=your-snowflake-account,SNOWFLAKE_USER=RETAILIQ_APP_USER,SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT,SNOWFLAKE_ROLE=RETAILIQ_APP_ROLE,SNOWFLAKE_WAREHOUSE=RETAILIQ_WH,SNOWFLAKE_DATABASE=RETAILIQ_DB,SNOWFLAKE_SCHEMA=MARTS,SNOWFLAKE_PRIVATE_KEY_FILE=/secrets/snowflake_private_key.p8,OPENAI_MODEL=gpt-5-mini" \
   --set-secrets "/secrets/snowflake_private_key.p8=retailiq-snowflake-private-key:latest"
 ```
 
@@ -165,6 +165,8 @@ If you also created `retailiq-openai-api-key`, replace the `--set-secrets` line 
 ```
 
 Important: replace `your-snowflake-account` with the same account value that works locally, such as `hktqqza-vk12996` if that is your active locator.
+
+If the OpenAI secret is not attached, the AI Retail Analyst page still runs with deterministic governed SQL templates. Attach `OPENAI_API_KEY` to enable full LLM SQL generation and answer synthesis.
 
 ## 7. Open The Public URL
 

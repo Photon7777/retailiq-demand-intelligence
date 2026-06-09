@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 from openai import OpenAI
+from openai import OpenAIError
 
 from src.ai.prompt_templates import ANSWER_SYNTHESIS_PROMPT, SYSTEM_PROMPT
 from src.ai.sql_agent import SqlGenerationResult, execute_governed_sql, generate_sql_from_question
@@ -140,9 +141,9 @@ def answer_business_question(
         try:
             answer = synthesize_openai_answer(question, sql_result.sql, result_df, config)
             used_openai = True
-        except Exception as exc:  # noqa: BLE001 - analyst should degrade gracefully in the app
+        except OpenAIError:
             answer = deterministic_answer(question, result_df, sql_result)
-            warning = f"OpenAI answer synthesis failed, so RetailIQ used a deterministic summary: {exc}"
+            warning = "OpenAI answer synthesis failed, so RetailIQ used a deterministic summary."
             used_openai = False
     else:
         answer = deterministic_answer(question, result_df, sql_result)

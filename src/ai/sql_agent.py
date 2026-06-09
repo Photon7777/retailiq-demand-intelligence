@@ -9,6 +9,7 @@ from typing import Any
 
 import pandas as pd
 from openai import OpenAI
+from openai import OpenAIError
 
 from src.ai.prompt_templates import SQL_AGENT_GUARDRAILS, SQL_GENERATION_PROMPT
 from src.utils.config import AppConfig, get_config
@@ -292,6 +293,21 @@ def fallback_sql_for_question(question: str, config: AppConfig | None = None) ->
     )
 
 
+def _fallback_after_openai_error(
+    question: str,
+    config: AppConfig | None = None,
+    warning: str = "OpenAI SQL generation failed, so RetailIQ used a deterministic governed query template.",
+) -> SqlGenerationResult:
+    result = fallback_sql_for_question(question, config)
+    return SqlGenerationResult(
+        sql=result.sql,
+        rationale=result.rationale,
+        used_openai=False,
+        model=result.model,
+        warning=warning,
+    )
+
+
 def _parse_openai_sql_response(raw_content: str) -> tuple[str, str]:
     try:
         payload = json.loads(raw_content)
@@ -319,25 +335,28 @@ def generate_sql_from_question(
 
     client = OpenAI(api_key=config.openai_api_key)
     model = config.openai_model or "gpt-5-mini"
-    response = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": SQL_GENERATION_PROMPT.format(
-                    guardrails=SQL_AGENT_GUARDRAILS,
-                    table_catalog=catalog_for_prompt(config),
-                    row_limit=row_limit,
-                ),
-            },
-            {"role": "user", "content": question},
-        ],
-    )
-    content = response.choices[0].message.content or "{}"
-    sql, rationale = _parse_openai_sql_response(content)
-    governed_sql = enforce_limit(validate_read_only_sql(sql, config), row_limit=row_limit)
-    return SqlGenerationResult(sql=governed_sql, rationale=rationale, used_openai=True, model=model)
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": SQL_GENERATION_PROMPT.format(
+                        guardrails=SQL_AGENT_GUARDRAILS,
+                        table_catalog=catalog_for_prompt(config),
+                        row_limit=row_limit,
+                    ),
+                },
+                {"role": "user", "content": question},
+            ],
+        )
+        content = response.choices[0].message.content or "{}"
+        sql, rationale = _parse_openai_sql_response(content)
+        governed_sql = enforce_limit(validate_read_only_sql(sql, config), row_limit=row_limit)
+        return SqlGenerationResult(sql=governed_sql, rationale=rationale, used_openai=True, model=model)
+    except (OpenAIError, SqlValidationError, ValueError, json.JSONDecodeError):
+        return _fallback_after_openai_error(question, config)
 
 
 def execute_governed_sql(

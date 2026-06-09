@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from openai import AuthenticationError
+from unittest.mock import Mock
 
 from src.ai.sql_agent import (
     SqlValidationError,
@@ -73,3 +75,30 @@ def test_fallback_sql_for_sales_question_uses_governed_mart() -> None:
     assert "RETAILIQ_DB.MARTS.FACT_SALES" in result.sql
     assert "RETAILIQ_DB.MARTS.DIM_STORE" in result.sql
     assert "limit 10" in result.sql.lower()
+
+
+def test_openai_generation_error_falls_back_without_raw_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.ai import sql_agent
+
+    class FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            request = Mock()
+            request.headers = {}
+            raise AuthenticationError("Incorrect API key provided: sk-test-secret", response=Mock(), body=None)
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            self.chat = Mock()
+            self.chat.completions = FakeCompletions()
+
+    monkeypatch.setattr(sql_agent, "OpenAI", FakeClient)
+    config = make_config()
+    config = config.__class__(**{**config.__dict__, "openai_api_key": "sk-test-secret"})
+
+    result = sql_agent.generate_sql_from_question("What are total sales?", config=config)
+
+    assert result.used_openai is False
+    assert "OpenAI SQL generation failed" in (result.warning or "")
+    assert "sk-test-secret" not in (result.warning or "")
+    assert "RETAILIQ_DB.MARTS.FACT_SALES" in result.sql

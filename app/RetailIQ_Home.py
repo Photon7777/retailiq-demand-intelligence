@@ -17,8 +17,10 @@ from src.app_support.streamlit_helpers import (  # noqa: E402
     format_compact_currency,
     format_number,
     render_empty_state,
+    render_action_cards,
     render_metric_cards,
     render_page_header,
+    render_pipeline_rail,
     render_section_header,
     render_status_grid,
     load_data,
@@ -40,9 +42,9 @@ config = render_sidebar()
 
 render_page_header(
     "RetailIQ",
-    "Cloud-native retail demand intelligence",
-    "A Snowflake-backed analytics command center for demand forecasting, stockout risk, sales anomalies, and AI-assisted business analysis.",
-    ["Snowflake", "dbt", "Streamlit", "Cloud Run"],
+    "Retail operations intelligence",
+    "A Snowflake-backed retail command center for forecasting demand, spotting stockout exposure, detecting anomalies, and turning governed marts into executive answers.",
+    ["Snowflake warehouse", "dbt mart layer", "Forecast model", "Cloud Run live demo"],
 )
 
 metrics = load_data(fetch_executive_metrics, config)
@@ -96,10 +98,15 @@ with overview_col:
 
 with architecture_col:
     render_section_header("Architecture Summary", "Cloud-native path from raw files to decisions.")
-    st.markdown(
-        """
-        `CSV / GCS` -> `Snowflake RAW` -> `dbt STAGING` -> `dbt MARTS` -> `Snowflake ML` -> `Streamlit + AI Analyst`
-        """
+    render_pipeline_rail(
+        [
+            ("Retail CSV", "Walmart sales, stores, features, weather, and inventory"),
+            ("Snowflake RAW", "Auditable landing tables for source data"),
+            ("dbt STAGING", "Typed, cleaned, analytics-safe views"),
+            ("dbt MARTS", "Sales, inventory, demand, forecast, and risk facts"),
+            ("ML Outputs", "Forecast, anomaly, and stockout scoring tables"),
+            ("Streamlit", "Live business workflow and AI analyst interface"),
+        ]
     )
     st.info("Phase 2 adds Walmart prep, baseline ML outputs, and Snowflake-backed model marts.")
 
@@ -114,13 +121,10 @@ else:
     )
 
 render_section_header("Next Build Areas", "Upcoming product increments.")
-next_cols = st.columns(3)
-with next_cols[0]:
-    st.markdown("**Forecasting Model**")
-    st.write("Evaluate the baseline model against the full Walmart history and add richer lag features.")
-with next_cols[1]:
-    st.markdown("**Inventory Simulation**")
-    st.write("Tune synthetic inventory assumptions for service-level and reorder-point scenarios.")
-with next_cols[2]:
-    st.markdown("**AI Analyst**")
-    st.write("Connect OpenAI-backed SQL generation to the governed mart layer.")
+render_action_cards(
+    [
+        ("Forecasting Model", "Evaluate the baseline model against the full Walmart history and add richer lag, holiday, and store-format features."),
+        ("Inventory Simulation", "Tune synthetic inventory assumptions for service-level, reorder-point, and recovery-time scenarios."),
+        ("AI Analyst", "Connect OpenAI-backed SQL generation to the governed mart layer with guardrails and query traceability."),
+    ]
+)

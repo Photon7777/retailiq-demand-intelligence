@@ -4,7 +4,7 @@
 
 RetailIQ is a portfolio-grade retail analytics platform for demand forecasting, stockout risk monitoring, anomaly detection, and AI-assisted business analysis. The project is designed as an end-to-end cloud-native data product using Google Cloud Storage, Snowflake, dbt, Python, Streamlit, Docker, GitHub, and the OpenAI API.
 
-This repository currently contains the Phase 3 buildout: a professional project structure, Snowflake raw and ML-layer DDL, local and cloud ingestion utilities, dbt staging and mart models, full Walmart data preparation, synthetic inventory and weather generation, baseline forecasting, stockout risk scoring, anomaly detection, governed AI analyst workflows, tests, Docker packaging, and a public Google Cloud Run deployment.
+This repository currently contains the Phase 3+ buildout: a professional project structure, Snowflake raw and ML-layer DDL, local and cloud ingestion utilities, dbt staging and mart models, full Walmart data preparation, synthetic inventory and weather generation, baseline forecasting, stockout risk scoring, anomaly detection, governed AI analyst workflows, optional Airflow orchestration, tests, Docker packaging, and a public Google Cloud Run deployment.
 
 ## Product Preview
 
@@ -17,6 +17,7 @@ This repository currently contains the Phase 3 buildout: a professional project 
 ## Portfolio Highlights
 
 - **End-to-end data product**: raw Walmart data is prepared, loaded into Snowflake, transformed with dbt, scored with Python ML workflows, and served through Streamlit.
+- **Airflow orchestration**: an optional DAG coordinates source validation, data prep, Snowflake loads, model training, ML output generation, and dbt runs.
 - **Cloud deployment**: the public app runs on Google Cloud Run with Docker, Secret Manager, and Snowflake key-pair authentication.
 - **Governed AI analyst**: OpenAI-generated analysis is constrained to approved Snowflake mart tables, read-only SQL, row limits, and visible query traceability.
 - **Operational retail workflows**: dashboards cover executive KPIs, forecast accuracy, stockout exposure, anomaly investigation, and data quality.
@@ -56,6 +57,7 @@ For a deeper narrative, see [docs/architecture.md](docs/architecture.md) and [do
 - **Application**: Streamlit and Plotly
 - **AI**: OpenAI API and LangChain
 - **DevOps**: Docker, Docker Compose, Google Cloud Run, and GitHub
+- **Orchestration**: Apache Airflow
 - **Testing**: pytest
 
 ## Dataset
@@ -84,6 +86,7 @@ Place Phase 1 sample files in `data/sample/` for smoke testing, or place the ful
 - Data quality monitoring
 - Streamlit executive dashboard
 - AI Retail Analyst chatbot using Snowflake-backed SQL
+- Airflow DAG for repeatable pipeline orchestration
 - Dockerized local development and Cloud Run deployment
 
 ## Demo Walkthrough
@@ -271,6 +274,21 @@ docker compose up --build
 
 The app will be available at `http://localhost:8501`.
 
+## Airflow Orchestration
+
+RetailIQ includes an optional Airflow DAG for local orchestration of the full data and ML pipeline.
+
+```bash
+export AIRFLOW_UID=$(id -u)
+mkdir -p orchestration/airflow/logs orchestration/airflow/plugins
+docker compose --profile airflow up --build airflow-init
+docker compose --profile airflow up airflow-webserver airflow-scheduler
+```
+
+Open `http://localhost:8081`, sign in, and trigger `retailiq_phase2_pipeline`.
+
+See [orchestration/airflow/README.md](orchestration/airflow/README.md) for configuration, Snowflake authentication notes, and shutdown commands.
+
 ## Deployment
 
 RetailIQ is deployment-ready for Google Cloud Run using the included `Dockerfile`.
@@ -322,6 +340,7 @@ See [cloud/cloud_run_deploy.md](cloud/cloud_run_deploy.md) for the full step-by-
 - Execute read-only Snowflake `MARTS` queries with row limits
 - Show answer, SQL rationale, generated SQL, and result preview in Streamlit
 - Support deterministic analyst templates when `OPENAI_API_KEY` is not configured
+- Add optional Airflow orchestration for the data and ML pipeline
 - Add richer anomaly detection workflows
 - Expand Streamlit dashboard interaction and drilldowns
 - Add model evaluation and explainability

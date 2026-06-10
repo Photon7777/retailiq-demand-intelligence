@@ -11,6 +11,7 @@ __pycache__
 
 dbt_retailiq/logs
 dbt_retailiq/target
+orchestration/airflow/logs
 
 data/raw/walmart/*
 !data/raw/walmart/README.md

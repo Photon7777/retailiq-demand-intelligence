@@ -6,6 +6,7 @@ RetailIQ is designed as a layered data and AI platform for retail demand intelli
 
 ```text
 Local CSV / GCS
+    -> Airflow orchestration
     -> Snowflake RAW
     -> dbt STAGING
     -> dbt MARTS
@@ -19,11 +20,15 @@ Local CSV / GCS
 ```mermaid
 flowchart LR
     A["Walmart CSV files"] --> B["Python preparation"]
+    K["Airflow DAG"] --> B
+    K --> F
+    K --> L["dbt commands"]
     B --> C["Snowflake RAW"]
     C --> D["dbt STAGING"]
     D --> E["dbt MARTS"]
     B --> F["Python ML workflows"]
     F --> G["Snowflake ML"]
+    L --> E
     G --> E
     E --> H["Streamlit dashboards"]
     E --> I["Governed AI Retail Analyst"]
@@ -49,6 +54,10 @@ Snowflake stores each major stage in a dedicated schema:
 ### Transformation
 
 dbt provides modular SQL transformations, lineage, tests, and documentation. Phase 2 includes staging views, enriched intermediate models, dimensional marts, sales facts, inventory facts, forecast facts, stockout risk facts, and anomaly facts.
+
+### Orchestration
+
+Airflow is available as an optional local orchestration layer. The `retailiq_phase2_pipeline` DAG validates Walmart source files, prepares canonical CSVs, optionally uploads to GCS, loads Snowflake raw and ML tables, trains the baseline forecast model, generates ML outputs, and runs dbt marts/tests.
 
 ### Machine Learning
 

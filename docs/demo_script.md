@@ -88,6 +88,7 @@ Show the repository structure and call out:
 - `dbt_retailiq`: staging, intermediate, and mart models
 - `src/ml`: forecasting, stockout risk, anomaly detection, and synthetic inventory
 - `src/ai`: governed SQL and analyst orchestration
+- `orchestration/airflow`: repeatable DAG for the data and ML refresh workflow
 - `app`: Streamlit product experience
 - `tests`: unit, integration-style, and deployment asset checks
 - `cloud`: Snowflake and Cloud Run deployment setup

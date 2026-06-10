@@ -25,6 +25,9 @@ dbt_retailiq/logs/
 dbt_retailiq/profiles.yml
 dbt_retailiq/.user.yml
 
+# Airflow
+orchestration/airflow/logs/
+
 # Jupyter
 .ipynb_checkpoints/
 

@@ -1,3 +1,37 @@
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: orchestration/airflow/Dockerfile
+    args:
+      AIRFLOW_VERSION: ${AIRFLOW_VERSION:-2.10.5}
+  env_file:
+    - .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    RETAILIQ_PROJECT_DIR: /opt/airflow/retailiq
+    RETAILIQ_PYTHON_BIN: /opt/airflow/retailiq_venv/bin/python
+    RETAILIQ_DBT_BIN: /opt/airflow/retailiq_venv/bin/dbt
+    RETAILIQ_AIRFLOW_TRUNCATE_FIRST: ${RETAILIQ_AIRFLOW_TRUNCATE_FIRST:-true}
+    RETAILIQ_AIRFLOW_UPLOAD_GCS: ${RETAILIQ_AIRFLOW_UPLOAD_GCS:-false}
+    AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+    AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+    AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
+  volumes:
+    - ./orchestration/airflow/dags:/opt/airflow/dags
+    - ./orchestration/airflow/logs:/opt/airflow/logs
+    - ./orchestration/airflow/plugins:/opt/airflow/plugins
+    - .:/opt/airflow/retailiq
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+  profiles:
+    - airflow
+
 services:
   streamlit:
     image: python:3.11-slim
@@ -13,3 +47,59 @@ services:
       streamlit run app/RetailIQ_Home.py
       --server.address=0.0.0.0
       --server.port=8501"
+
+  airflow-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    profiles:
+      - airflow
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username "$${AIRFLOW_ADMIN_USERNAME:-admin}" \
+          --firstname RetailIQ \
+          --lastname Admin \
+          --role Admin \
+          --email "$${AIRFLOW_ADMIN_EMAIL:-admin@example.com}" \
+          --password "$${AIRFLOW_ADMIN_PASSWORD:-admin}" || true
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--hostname", "$${HOSTNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  airflow-postgres-db-volume:

@@ -65,6 +65,21 @@ Run the full pipeline after Snowflake connectivity is working:
 python -m src.pipelines.run_phase2 --truncate-first
 ```
 
+## Optional Airflow Workflow
+
+Airflow can orchestrate the same Phase 2 workflow when you want a scheduler-style portfolio demo:
+
+```bash
+export AIRFLOW_UID=$(id -u)
+mkdir -p orchestration/airflow/logs orchestration/airflow/plugins
+docker compose --profile airflow up --build airflow-init
+docker compose --profile airflow up airflow-webserver airflow-scheduler
+```
+
+Open `http://localhost:8081` and trigger `retailiq_phase2_pipeline`.
+
+Use Airflow with non-interactive Snowflake authentication, preferably the key-pair `RETAILIQ_APP_USER` setup described in `cloud/cloud_run_deploy.md`.
+
 If MFA is not cached, use:
 
 ```bash

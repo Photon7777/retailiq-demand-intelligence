@@ -13,6 +13,7 @@ RetailIQ connects the pieces that typically sit apart in analytics projects:
 - Streamlit dashboards backed by Snowflake marts
 - Governed AI analyst workflows using OpenAI and controlled SQL execution
 - Docker packaging and Google Cloud Run deployment
+- Optional Airflow orchestration for repeatable local pipeline runs
 - Documentation, runbooks, tests, and cost controls
 
 ## Product Narrative
@@ -25,7 +26,8 @@ Behind the scenes, the platform keeps the layers separate:
 2. Snowflake stores raw source tables and ML output tables.
 3. dbt turns raw and ML tables into governed marts.
 4. Streamlit queries the mart layer for dashboard pages.
-5. The AI analyst generates read-only SQL against approved marts only.
+5. Airflow can orchestrate the local data and ML refresh path.
+6. The AI analyst generates read-only SQL against approved marts only.
 
 ## Engineering Decisions
 

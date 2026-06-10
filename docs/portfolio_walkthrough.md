@@ -18,7 +18,7 @@ RetailIQ connects the pieces that typically sit apart in analytics projects:
 
 ## Product Narrative
 
-The app is framed as a retail operations command center. A business user can start with executive metrics, drill into forecast quality, inspect inventory risk, investigate anomalies, and ask plain-English questions through the AI Retail Analyst.
+The app is framed as a retail operations command center. A business user can start with executive metrics, drill into forecast quality, inspect inventory risk, review pipeline freshness, investigate anomalies, and ask plain-English questions through the AI Retail Analyst.
 
 Behind the scenes, the platform keeps the layers separate:
 
@@ -27,7 +27,8 @@ Behind the scenes, the platform keeps the layers separate:
 3. dbt turns raw and ML tables into governed marts.
 4. Streamlit queries the mart layer for dashboard pages.
 5. Airflow can orchestrate the local data and ML refresh path.
-6. The AI analyst generates read-only SQL against approved marts only.
+6. Pipeline health is surfaced from Snowflake metadata, row counts, and freshness timestamps.
+7. The AI analyst generates read-only SQL against approved marts only.
 
 ## Engineering Decisions
 
@@ -58,8 +59,9 @@ The public app uses Google Cloud Run, Secret Manager, and Snowflake key-pair aut
 3. Open Executive Overview for sales, store coverage, and risk KPIs.
 4. Open Demand Forecasting for WAPE, forecast totals, filters, and forecast rows.
 5. Open Stockout Risk and Anomaly Center to show operational model outputs.
-6. Open AI Retail Analyst and ask a governed business question.
-7. Close in GitHub with the repo structure, tests, and deployment guide.
+6. Open Pipeline Health to show orchestration readiness and Snowflake freshness.
+7. Open AI Retail Analyst and ask a governed business question.
+8. Close in GitHub with the repo structure, tests, and deployment guide.
 
 For a timed version, use `docs/demo_script.md`.
 

@@ -16,6 +16,30 @@ from src.utils.snowflake_connection import snowflake_connection
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 
 
+EXPECTED_PIPELINE_OBJECTS: tuple[tuple[str, str, str, str], ...] = (
+    ("RAW", "SALES", "Raw ingestion", "Weekly sales landing table"),
+    ("RAW", "STORES", "Raw ingestion", "Store metadata landing table"),
+    ("RAW", "FEATURES", "Raw ingestion", "Economic and holiday feature table"),
+    ("RAW", "INVENTORY", "Raw ingestion", "Synthetic inventory landing table"),
+    ("RAW", "WEATHER", "Raw ingestion", "Synthetic weather landing table"),
+    ("STAGING", "STG_SALES", "dbt staging", "Typed sales staging view"),
+    ("STAGING", "STG_STORES", "dbt staging", "Typed store staging view"),
+    ("STAGING", "STG_FEATURES", "dbt staging", "Typed feature staging view"),
+    ("STAGING", "STG_INVENTORY", "dbt staging", "Typed inventory staging view"),
+    ("MARTS", "DIM_STORE", "dbt marts", "Store dimension"),
+    ("MARTS", "DIM_DATE", "dbt marts", "Calendar dimension"),
+    ("MARTS", "FACT_SALES", "dbt marts", "Sales fact table"),
+    ("MARTS", "FACT_INVENTORY", "dbt marts", "Inventory fact table"),
+    ("MARTS", "FACT_DEMAND", "dbt marts", "Demand and inventory fact table"),
+    ("MARTS", "FACT_FORECAST", "Model marts", "Forecast fact table"),
+    ("MARTS", "FACT_STOCKOUT_RISK", "Model marts", "Stockout risk fact table"),
+    ("MARTS", "FACT_ANOMALIES", "Model marts", "Anomaly fact table"),
+    ("ML", "DEMAND_FORECASTS", "ML outputs", "Forecast output table"),
+    ("ML", "STOCKOUT_RISK", "ML outputs", "Stockout score output table"),
+    ("ML", "SALES_ANOMALIES", "ML outputs", "Anomaly output table"),
+)
+
+
 def _identifier(value: str) -> str:
     """Validate and normalize a Snowflake identifier from config/code."""
     if not IDENTIFIER_PATTERN.match(value):
@@ -74,6 +98,75 @@ def fetch_platform_summary(config: AppConfig | None = None) -> pd.DataFrame:
         from {database}.information_schema.tables
         where table_schema in ('RAW', 'STAGING', 'MARTS', 'ML')
         order by table_schema, table_name
+        """,
+        config=config,
+    )
+
+
+def fetch_pipeline_health(config: AppConfig | None = None) -> pd.DataFrame:
+    """Fetch expected pipeline object status from Snowflake metadata."""
+    database = _database(config)
+    values_clause = ",\n            ".join(
+        "('{schema}', '{table}', '{stage}', '{description}')".format(
+            schema=schema,
+            table=table,
+            stage=stage.replace("'", "''"),
+            description=description.replace("'", "''"),
+        )
+        for schema, table, stage, description in EXPECTED_PIPELINE_OBJECTS
+    )
+    return run_query(
+        f"""
+        with expected_objects as (
+            select
+                column1::varchar as table_schema,
+                column2::varchar as table_name,
+                column3::varchar as pipeline_stage,
+                column4::varchar as description
+            from values
+            {values_clause}
+        ),
+        object_inventory as (
+            select
+                table_schema,
+                table_name,
+                table_type,
+                coalesce(row_count, 0) as row_count,
+                created,
+                last_altered
+            from {database}.information_schema.tables
+            where table_schema in ('RAW', 'STAGING', 'MARTS', 'ML')
+        )
+        select
+            e.pipeline_stage,
+            e.table_schema,
+            e.table_name,
+            e.table_schema || '.' || e.table_name as object_name,
+            e.description,
+            coalesce(i.table_type, 'MISSING') as object_type,
+            coalesce(i.row_count, 0) as row_count,
+            i.created,
+            i.last_altered,
+            case
+                when i.table_name is null then 'Missing'
+                when i.table_type = 'BASE TABLE' and coalesce(i.row_count, 0) = 0 then 'Empty'
+                else 'Ready'
+            end as status
+        from expected_objects as e
+        left join object_inventory as i
+            on e.table_schema = i.table_schema
+            and e.table_name = i.table_name
+        order by
+            case e.pipeline_stage
+                when 'Raw ingestion' then 1
+                when 'dbt staging' then 2
+                when 'dbt marts' then 3
+                when 'ML outputs' then 4
+                when 'Model marts' then 5
+                else 6
+            end,
+            e.table_schema,
+            e.table_name
         """,
         config=config,
     )

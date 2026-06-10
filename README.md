@@ -99,8 +99,9 @@ Recommended demo path:
 2. Open **Executive Overview** to show sales, store coverage, and risk KPIs.
 3. Open **Demand Forecasting** to show forecast quality, filters, and model output marts.
 4. Open **Stockout Risk** and **Anomaly Center** to show operational model outputs.
-5. Open **AI Retail Analyst** and ask a governed business question.
-6. Close with the repository structure, tests, and deployment guide.
+5. Open **Pipeline Health** to show Snowflake object freshness, row counts, and pipeline readiness.
+6. Open **AI Retail Analyst** and ask a governed business question.
+7. Close with the repository structure, tests, and deployment guide.
 
 ## Quick Start
 

@@ -62,7 +62,17 @@ Talk track:
 - Anomaly detection flags unusual store-department-week sales behavior for investigation.
 - These pages turn ML outputs into operational actions.
 
-## 6. AI Retail Analyst
+## 6. Pipeline Health
+
+Open **Pipeline Health**.
+
+Talk track:
+
+- Airflow coordinates the local refresh path, while Snowflake metadata is the app-visible source of pipeline health.
+- The page checks expected `RAW`, `STAGING`, `MARTS`, and `ML` objects, row counts, and latest altered timestamps.
+- This makes freshness and readiness visible before business users rely on the dashboards.
+
+## 7. AI Retail Analyst
 
 Open **AI Retail Analyst**.
 
@@ -80,7 +90,7 @@ Suggested question:
 What are total sales and how many stores are represented?
 ```
 
-## 7. Repository Close
+## 8. Repository Close
 
 Show the repository structure and call out:
 

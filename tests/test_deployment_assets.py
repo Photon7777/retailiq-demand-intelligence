@@ -40,6 +40,7 @@ def test_cloud_run_deployment_assets_exist() -> None:
         ".dockerignore",
         "cloud/cloud_run_deploy.md",
         "cloud/snowflake_app_user.sql",
+        "app/pages/7_Pipeline_Health.py",
     ]
 
     missing = [path for path in required_paths if not (PROJECT_ROOT / path).exists()]

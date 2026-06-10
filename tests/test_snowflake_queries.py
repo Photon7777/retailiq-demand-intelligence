@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.utils.config import AppConfig
-from src.utils.snowflake_queries import _forecast_where_clause, qualified_table
+from src.utils.snowflake_queries import EXPECTED_PIPELINE_OBJECTS, _forecast_where_clause, qualified_table
 
 
 def make_config(database: str = "RETAILIQ_DB") -> AppConfig:
@@ -44,3 +44,14 @@ def test_forecast_where_clause_uses_bound_parameters() -> None:
         "and horizon_days = %(horizon_days)s"
     )
     assert params == {"store_id": 1, "dept_id": 7, "horizon_days": 0}
+
+
+def test_pipeline_health_tracks_core_layers() -> None:
+    tracked_objects = {(schema, table) for schema, table, _stage, _description in EXPECTED_PIPELINE_OBJECTS}
+
+    assert ("RAW", "SALES") in tracked_objects
+    assert ("RAW", "INVENTORY") in tracked_objects
+    assert ("STAGING", "STG_SALES") in tracked_objects
+    assert ("MARTS", "FACT_FORECAST") in tracked_objects
+    assert ("MARTS", "FACT_STOCKOUT_RISK") in tracked_objects
+    assert ("ML", "DEMAND_FORECASTS") in tracked_objects

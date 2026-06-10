@@ -122,6 +122,14 @@ In the Airflow UI:
 3. Click **Trigger DAG**.
 4. Watch the task graph from source validation through `dbt_test_marts`.
 
+The DAG is scheduled to run every day at **6:00 AM Eastern Time** by default. Airflow uses `RETAILIQ_AIRFLOW_TIMEZONE=America/New_York` and `RETAILIQ_AIRFLOW_SCHEDULE="0 6 * * *"` from the environment. You can still trigger it manually at any time.
+
+To make the DAG manual-only again:
+
+```bash
+RETAILIQ_AIRFLOW_SCHEDULE=manual
+```
+
 ## Configuration
 
 The DAG reads these optional environment variables:
@@ -136,6 +144,8 @@ The DAG reads these optional environment variables:
 | `RETAILIQ_AIRFLOW_TRUNCATE_FIRST` | `true` | Recreate Snowflake load tables before loading |
 | `RETAILIQ_AIRFLOW_UPLOAD_GCS` | `false` | Enable optional GCS upload task |
 | `RETAILIQ_AIRFLOW_GCS_PREFIX` | `retailiq/raw` | GCS object prefix |
+| `RETAILIQ_AIRFLOW_TIMEZONE` | `America/New_York` | Timezone used by the DAG schedule |
+| `RETAILIQ_AIRFLOW_SCHEDULE` | `0 6 * * *` | Daily 6 AM schedule; use `manual` to disable scheduling |
 
 ## Shut Down
 

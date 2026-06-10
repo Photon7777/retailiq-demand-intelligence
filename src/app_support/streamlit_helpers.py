@@ -145,6 +145,22 @@ def apply_global_styles() -> None:
             background: rgba(49, 53, 24, 0.6);
         }
 
+        div[data-testid="stSpinner"] {
+            border: 1px solid rgba(183, 243, 75, 0.2);
+            border-radius: 8px;
+            padding: 0.72rem 0.85rem;
+            background:
+                linear-gradient(90deg, rgba(183, 243, 75, 0.12), rgba(72, 184, 255, 0.07)),
+                rgba(14, 17, 14, 0.86);
+            color: var(--retailiq-text);
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+        }
+
+        div[data-testid="stSpinner"] div {
+            color: var(--retailiq-text);
+            font-weight: 650;
+        }
+
         .retailiq-hero {
             position: relative;
             overflow: hidden;
@@ -640,7 +656,8 @@ def render_sidebar() -> AppConfig:
                 help="Enter the current 6-digit Snowflake authenticator code before checking the connection.",
             )
         if st.button("Check connection", use_container_width=True):
-            ok, message = test_snowflake_connection(active_config())
+            with st.spinner("Checking Snowflake connection..."):
+                ok, message = test_snowflake_connection(active_config())
             st.session_state["snowflake_status"] = {"ok": ok, "message": message}
         status = st.session_state.get("snowflake_status")
         if status:
@@ -657,10 +674,19 @@ def render_sidebar() -> AppConfig:
     return active_config()
 
 
-def load_data(_loader: Callable[..., pd.DataFrame], config: AppConfig, *args, **kwargs) -> pd.DataFrame:
+def load_data(
+    _loader: Callable[..., pd.DataFrame],
+    config: AppConfig,
+    *args,
+    loading_message: str | None = None,
+    **kwargs,
+) -> pd.DataFrame:
     """Run a Snowflake-backed loader and display a graceful message on failure."""
+    loader_name = getattr(_loader, "__name__", "Snowflake data").replace("fetch_", "").replace("_", " ")
+    message = loading_message or f"Loading {loader_name}..."
     try:
-        return _loader(*args, config=config, **kwargs)
+        with st.spinner(message):
+            return _loader(*args, config=config, **kwargs)
     except Exception as exc:  # noqa: BLE001 - Streamlit should stay up during setup/auth issues
         st.warning(f"Unable to load Snowflake data: {exc}")
         return pd.DataFrame()

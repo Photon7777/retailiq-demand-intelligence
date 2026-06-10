@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import plotly.express as px
@@ -31,11 +32,14 @@ from src.app_support.streamlit_helpers import (  # noqa: E402
 from src.utils.snowflake_queries import fetch_pipeline_health, fetch_quality_checks  # noqa: E402
 
 
+EASTERN_TZ = ZoneInfo("America/New_York")
+
+
 def _format_timestamp(value: object) -> str:
-    timestamp = pd.to_datetime(value, errors="coerce")
+    timestamp = pd.to_datetime(value, errors="coerce", utc=True)
     if pd.isna(timestamp):
         return "Not available"
-    return timestamp.strftime("%b %d, %Y %I:%M %p")
+    return timestamp.tz_convert(EASTERN_TZ).strftime("%b %d, %Y %I:%M %p %Z")
 
 
 def _stage_status(summary: pd.DataFrame, stage: str) -> str:
@@ -59,8 +63,8 @@ render_page_header(
     ["Airflow DAG", "Snowflake metadata", "dbt readiness", "ML outputs"],
 )
 
-health = load_data(fetch_pipeline_health, config)
-quality = load_data(fetch_quality_checks, config)
+health = load_data(fetch_pipeline_health, config, loading_message="Checking pipeline objects in Snowflake...")
+quality = load_data(fetch_quality_checks, config, loading_message="Loading data quality signals...")
 
 if health.empty:
     render_empty_state("No pipeline metadata", "Run the Snowflake setup, data load, ML output load, and dbt build to populate pipeline health.")
@@ -68,8 +72,8 @@ if health.empty:
 
 health = health.copy()
 health["row_count"] = pd.to_numeric(health["row_count"], errors="coerce").fillna(0)
-health["last_altered"] = pd.to_datetime(health["last_altered"], errors="coerce")
-health["created"] = pd.to_datetime(health["created"], errors="coerce")
+health["last_altered"] = pd.to_datetime(health["last_altered"], errors="coerce", utc=True)
+health["created"] = pd.to_datetime(health["created"], errors="coerce", utc=True)
 
 stage_order = {
     "Raw ingestion": 1,

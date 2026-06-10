@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import os
 import shlex
+
+import pendulum
 
 try:
     from airflow import DAG
@@ -33,6 +35,8 @@ MAX_DEPTH = os.getenv("RETAILIQ_AIRFLOW_MAX_DEPTH", "16")
 MIN_SAMPLES_LEAF = os.getenv("RETAILIQ_AIRFLOW_MIN_SAMPLES_LEAF", "5")
 MAX_SAMPLES = os.getenv("RETAILIQ_AIRFLOW_MAX_SAMPLES", "0.65")
 GCS_PREFIX = os.getenv("RETAILIQ_AIRFLOW_GCS_PREFIX", "retailiq/raw")
+AIRFLOW_TIMEZONE = os.getenv("RETAILIQ_AIRFLOW_TIMEZONE", "America/New_York")
+LOCAL_TZ = pendulum.timezone(AIRFLOW_TIMEZONE)
 
 
 def truthy_env(name: str, default: str = "false") -> bool:
@@ -56,6 +60,14 @@ def maybe_truncate_flag() -> str:
     return " --truncate-first" if truthy_env("RETAILIQ_AIRFLOW_TRUNCATE_FIRST", "true") else ""
 
 
+def pipeline_schedule() -> str | None:
+    """Return the configured DAG schedule, defaulting to 6 AM Eastern."""
+    schedule = os.getenv("RETAILIQ_AIRFLOW_SCHEDULE", "0 6 * * *").strip()
+    if schedule.lower() in {"", "none", "manual"}:
+        return None
+    return schedule
+
+
 default_args = {
     "owner": "retailiq",
     "retries": 1,
@@ -66,8 +78,8 @@ default_args = {
 with DAG(
     dag_id="retailiq_phase2_pipeline",
     description="Prepare Walmart data, load Snowflake, train ML outputs, and build dbt marts.",
-    start_date=datetime(2026, 1, 1),
-    schedule=None,
+    start_date=pendulum.datetime(2026, 1, 1, tz=LOCAL_TZ),
+    schedule=pipeline_schedule(),
     catchup=False,
     default_args=default_args,
     tags=["retailiq", "snowflake", "dbt", "ml"],

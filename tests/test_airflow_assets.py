@@ -38,6 +38,17 @@ def test_airflow_dag_declares_expected_pipeline_tasks() -> None:
         assert f'task_id="{task_id}"' in dag_text
 
 
+def test_airflow_dag_runs_daily_at_6am_eastern_by_default() -> None:
+    dag_text = (PROJECT_ROOT / "orchestration/airflow/dags/retailiq_phase2_dag.py").read_text(encoding="utf-8")
+    env_text = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
+    docs_text = (PROJECT_ROOT / "orchestration/airflow/README.md").read_text(encoding="utf-8")
+
+    assert 'os.getenv("RETAILIQ_AIRFLOW_SCHEDULE", "0 6 * * *")' in dag_text
+    assert 'os.getenv("RETAILIQ_AIRFLOW_TIMEZONE", "America/New_York")' in dag_text
+    assert 'RETAILIQ_AIRFLOW_SCHEDULE="0 6 * * *"' in env_text
+    assert "6:00 AM Eastern Time" in docs_text
+
+
 def test_docker_compose_exposes_airflow_profile() -> None:
     compose_text = (PROJECT_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 

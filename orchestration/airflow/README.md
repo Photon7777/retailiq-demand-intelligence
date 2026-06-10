@@ -97,3 +97,15 @@ To remove the local Airflow metadata database:
 ```bash
 docker compose --profile airflow down --volumes
 ```
+
+## Troubleshooting
+
+If `airflow-init` says the Airflow user has no username, pull the latest repo changes and recreate the Airflow containers:
+
+```bash
+docker compose --profile airflow down --remove-orphans
+export AIRFLOW_UID=$(id -u)
+docker compose --profile airflow up --build airflow-init
+```
+
+The init service must use Airflow's official container entrypoint so the runtime user is registered correctly before Airflow commands run.

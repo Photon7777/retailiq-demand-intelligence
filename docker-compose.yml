@@ -66,11 +66,11 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    entrypoint: /bin/bash
     command:
+      - bash
       - -c
       - |
-        airflow db migrate
+        airflow db migrate &&
         airflow users create \
           --username "$${AIRFLOW_ADMIN_USERNAME:-admin}" \
           --firstname RetailIQ \

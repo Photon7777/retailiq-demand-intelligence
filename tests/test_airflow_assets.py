@@ -45,3 +45,12 @@ def test_docker_compose_exposes_airflow_profile() -> None:
     assert "airflow-init:" in compose_text
     assert "- airflow" in compose_text
     assert "8081:8080" in compose_text
+
+
+def test_airflow_init_keeps_official_entrypoint() -> None:
+    compose_text = (PROJECT_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    airflow_init_block = compose_text.split("  airflow-init:", maxsplit=1)[1].split("  airflow-webserver:", maxsplit=1)[0]
+
+    assert "entrypoint:" not in airflow_init_block
+    assert "- bash" in airflow_init_block
+    assert "- -c" in airflow_init_block

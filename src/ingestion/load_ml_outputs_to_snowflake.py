@@ -166,20 +166,29 @@ def read_ml_output(file_path: Path, output_config: MLOutputConfig) -> pd.DataFra
 
 
 def ensure_ml_schema(connection, database: str) -> None:
-    """Create the Snowflake ML schema if it does not exist."""
+    """Validate that the Snowflake ML schema exists and is visible to the active role."""
     with connection.cursor() as cursor:
-        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {database}.ML")
+        cursor.execute(f"SHOW SCHEMAS LIKE 'ML' IN DATABASE {database}")
+        if cursor.fetchone() is None:
+            raise RuntimeError(
+                f"{database}.ML does not exist or is not visible to the active Snowflake role. "
+                "Run cloud/snowflake_setup.sql and grant USAGE on RETAILIQ_DB.ML."
+            )
 
 
-def ensure_ml_table(connection, database: str, table_name: str, replace_existing: bool = False) -> None:
-    """Create or recreate one Snowflake ML output table."""
+def ensure_ml_table(connection, database: str, table_name: str) -> None:
+    """Create one Snowflake ML output table when it does not already exist."""
     ddl = ML_TABLE_DDL[table_name].format(database=database)
-    if replace_existing:
-        ddl = ddl.replace("CREATE TABLE IF NOT EXISTS", "CREATE OR REPLACE TABLE", 1)
-
     with connection.cursor() as cursor:
-        logger.info("%s ML.%s", "Recreating" if replace_existing else "Ensuring", table_name)
+        logger.info("Ensuring ML.%s", table_name)
         cursor.execute(ddl)
+
+
+def truncate_ml_table(connection, database: str, table_name: str) -> None:
+    """Remove existing rows from a Snowflake ML table before a repeatable load."""
+    qualified_table = f"{database}.ML.{table_name}"
+    with connection.cursor() as cursor:
+        cursor.execute(f"TRUNCATE TABLE {qualified_table}")
 
 
 def load_ml_outputs(
@@ -207,12 +216,12 @@ def load_ml_outputs(
                 connection,
                 config.snowflake_database,
                 output_config.table_name,
-                replace_existing=truncate_first,
             )
+            if truncate_first:
+                logger.info("Truncating ML.%s before load", output_config.table_name)
+                truncate_ml_table(connection, config.snowflake_database, output_config.table_name)
             logger.info("Preparing %s for ML.%s", file_name, output_config.table_name)
             df = read_ml_output(file_path, output_config)
-            if truncate_first:
-                logger.info("Recreated ML.%s before load", output_config.table_name)
             success, _chunks, row_count, output = write_pandas(
                 conn=connection,
                 df=df,
@@ -237,7 +246,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--truncate-first",
         action="store_true",
-        help="Recreate target ML tables before loading so schema fixes and smoke tests are repeatable.",
+        help="Truncate target ML tables before loading so smoke tests and local DAG runs are repeatable.",
     )
     return parser.parse_args()
 

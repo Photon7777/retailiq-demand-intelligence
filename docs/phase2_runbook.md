@@ -78,7 +78,7 @@ docker compose --profile airflow up airflow-webserver airflow-scheduler
 
 Open `http://localhost:8081` and trigger `retailiq_phase2_pipeline`.
 
-Use Airflow with non-interactive Snowflake authentication, preferably the key-pair `RETAILIQ_APP_USER` setup described in `cloud/cloud_run_deploy.md`.
+Use Airflow with non-interactive Snowflake authentication, preferably the key-pair `RETAILIQ_AIRFLOW_USER` setup in `cloud/snowflake_airflow_user.sql` and `orchestration/airflow/README.md`. Personal username/password MFA will fail once a task needs a fresh TOTP code.
 
 If MFA is not cached, use:
 

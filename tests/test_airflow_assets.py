@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def test_airflow_orchestration_assets_exist() -> None:
     required_paths = [
+        "cloud/snowflake_airflow_user.sql",
         "orchestration/airflow/Dockerfile",
         "orchestration/airflow/README.md",
         "orchestration/airflow/dags/retailiq_phase2_dag.py",
@@ -54,3 +55,12 @@ def test_airflow_init_keeps_official_entrypoint() -> None:
     assert "entrypoint:" not in airflow_init_block
     assert "- bash" in airflow_init_block
     assert "- -c" in airflow_init_block
+
+
+def test_dbt_profile_supports_snowflake_key_pair_auth() -> None:
+    profile_text = (PROJECT_ROOT / "dbt_retailiq/profiles.yml.example").read_text(encoding="utf-8")
+
+    assert "SNOWFLAKE_AUTHENTICATOR" in profile_text
+    assert "snowflake_jwt" in profile_text
+    assert "private_key_path" in profile_text
+    assert "SNOWFLAKE_PRIVATE_KEY_FILE" in profile_text

@@ -10,6 +10,10 @@ __pycache__/
 .venv/
 venv/
 env/
+secrets/
+*.pem
+*.p8
+*.key
 
 # Local datasets and generated model artifacts
 data/raw/walmart/*.csv

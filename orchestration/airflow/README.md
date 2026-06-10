@@ -28,7 +28,49 @@ The Airflow image installs RetailIQ's Python, ML, Snowflake, and dbt dependencie
 - Snowflake objects created with `cloud/snowflake_setup.sql`
 - Snowflake authentication that works without an interactive prompt
 
-For local Airflow, key-pair authentication with the read-only app user is the cleanest Snowflake path. Username/password MFA can work only if the account and client configuration support non-interactive token caching.
+For local Airflow, use key-pair authentication with `RETAILIQ_AIRFLOW_USER`. Username/password MFA is fine for manual local commands, but Airflow tasks run unattended and cannot stop to ask for a fresh 6-digit TOTP code.
+
+## Configure Snowflake For Airflow
+
+If `load_raw_tables_to_snowflake` fails with `MFA with TOTP is required`, switch Airflow to a service user.
+
+Create a local private key:
+
+```bash
+mkdir -p secrets/snowflake
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM \
+  -out secrets/snowflake/retailiq_airflow_key.p8 \
+  -nocrypt
+openssl rsa \
+  -in secrets/snowflake/retailiq_airflow_key.p8 \
+  -pubout \
+  -out secrets/snowflake/retailiq_airflow_key.pub
+```
+
+Print the one-line public key:
+
+```bash
+awk 'NF && !/-----/{printf "%s",$0}' secrets/snowflake/retailiq_airflow_key.pub
+echo
+```
+
+In Snowflake, open `cloud/snowflake_airflow_user.sql`, replace `<paste_public_key_here>` with that one-line public key, and run the worksheet as `ACCOUNTADMIN`.
+
+Then update `.env` for Airflow:
+
+```bash
+SNOWFLAKE_USER=RETAILIQ_AIRFLOW_USER
+SNOWFLAKE_PASSWORD=
+SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT
+SNOWFLAKE_PRIVATE_KEY_FILE=/opt/airflow/retailiq/secrets/snowflake/retailiq_airflow_key.p8
+SNOWFLAKE_PRIVATE_KEY_FILE_PWD=
+SNOWFLAKE_ROLE=RETAILIQ_PIPELINE_ROLE
+SNOWFLAKE_WAREHOUSE=RETAILIQ_WH
+SNOWFLAKE_DATABASE=RETAILIQ_DB
+SNOWFLAKE_SCHEMA=RAW
+```
+
+The `secrets/` directory is gitignored. Do not commit private keys.
 
 ## Start Airflow
 
@@ -37,6 +79,15 @@ From the repository root:
 ```bash
 export AIRFLOW_UID=$(id -u)
 mkdir -p orchestration/airflow/logs orchestration/airflow/plugins
+docker compose --profile airflow up --build airflow-init
+docker compose --profile airflow up airflow-webserver airflow-scheduler
+```
+
+If you changed `.env`, recreate the containers so Airflow receives the new variables:
+
+```bash
+docker compose --profile airflow down --remove-orphans
+export AIRFLOW_UID=$(id -u)
 docker compose --profile airflow up --build airflow-init
 docker compose --profile airflow up airflow-webserver airflow-scheduler
 ```
@@ -109,3 +160,5 @@ docker compose --profile airflow up --build airflow-init
 ```
 
 The init service must use Airflow's official container entrypoint so the runtime user is registered correctly before Airflow commands run.
+
+If `load_raw_tables_to_snowflake` fails with a Snowflake MFA/TOTP error, Airflow is still using personal username/password authentication. Complete the `RETAILIQ_AIRFLOW_USER` key-pair setup above, restart the Airflow containers, and trigger a new DAG run.
